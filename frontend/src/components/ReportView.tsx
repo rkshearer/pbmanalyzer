@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { AnalysisReport, CostRiskItem } from '../types'
+import { API_BASE_URL } from '../api'
 
 interface Props {
   analysis: AnalysisReport
@@ -60,7 +61,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
 
   const handleDownload = () => {
     const a = document.createElement('a')
-    a.href = downloadUrl
+    a.href = `${API_BASE_URL}${downloadUrl}`
     a.download = 'PBM_Analysis_Report.pdf'
     document.body.appendChild(a)
     a.click()
