@@ -6,6 +6,13 @@ interface Props {
   downloadUrl: string
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 const GRADE_COLORS: Record<string, string> = {
   A: '#2e7d32',
   B: '#1565c0',
@@ -35,11 +42,11 @@ function RiskBadge({ level }: { level: string }) {
   return <span className={`risk-badge risk-${level.toLowerCase()}`}>{level.toUpperCase()}</span>
 }
 
-function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+function SectionCard({ num, title, children }: { num: string; title: string; children: ReactNode }) {
   return (
     <section className="report-section-card">
-      <div className="section-accent" />
       <div className="section-inner">
+        <p className="section-num">{num}</p>
         <h2 className="section-title">{title}</h2>
         <div className="section-divider" />
         {children}
@@ -67,18 +74,18 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
   return (
     <div className="report-section">
       {/* Top download bar */}
-      <div className="download-bar">
+      <div className="download-bar success">
         <div>
-          <strong>Your analysis is ready.</strong> Review the full report below or download a
+          <strong>✓ Analysis complete.</strong> Review the full report below or download the
           formatted PDF.
         </div>
         <button className="btn btn-download" onClick={handleDownload}>
-          ⬇ Download PDF Report
+          ↓ Download PDF Report
         </button>
       </div>
 
       {/* Overall Grade */}
-      <div className="grade-banner" style={{ borderLeftColor: gradeColor }}>
+      <div className="grade-banner" style={{ borderLeftColor: gradeColor, backgroundColor: hexToRgba(gradeColor, 0.05) }}>
         <div className="grade-left">
           <div className="grade-letter" style={{ color: gradeColor }}>
             {analysis.overall_grade}
@@ -97,7 +104,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </div>
 
       {/* Executive Summary */}
-      <SectionCard title="Executive Summary">
+      <SectionCard num="01" title="Executive Summary">
         {analysis.executive_summary.split('\n\n').map((para, i) =>
           para.trim() ? (
             <p key={i} className="section-body">
@@ -108,7 +115,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Key Concerns */}
-      <SectionCard title="Key Concerns">
+      <SectionCard num="02" title="Key Concerns">
         <div className="concerns-list">
           {analysis.key_concerns.map((concern, i) => (
             <div key={i} className="concern-item">
@@ -120,7 +127,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Contract Overview */}
-      <SectionCard title="Contract Overview">
+      <SectionCard num="03" title="Contract Overview">
         <table className="data-table">
           <tbody>
             {(
@@ -143,7 +150,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Pricing Terms */}
-      <SectionCard title="Pricing Terms">
+      <SectionCard num="04" title="Pricing Terms">
         <table className="data-table pricing-table">
           <thead>
             <tr>
@@ -180,7 +187,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Market Comparison */}
-      <SectionCard title="Market Comparison">
+      <SectionCard num="05" title="Market Comparison">
         <table className="data-table pricing-table">
           <thead>
             <tr>
@@ -232,7 +239,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Cost Risk Areas */}
-      <SectionCard title="Cost Risk Areas">
+      <SectionCard num="06" title="Cost Risk Areas">
         <div className="risk-list">
           {analysis.cost_risk_areas.map((risk: CostRiskItem, i) => (
             <div key={i} className={`risk-item risk-border-${risk.risk_level.toLowerCase()}`}>
@@ -250,7 +257,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Negotiation Guidance */}
-      <SectionCard title="Negotiation Guidance">
+      <SectionCard num="07" title="Negotiation Guidance">
         <p className="section-intro">
           The following recommendations are specific to the terms found in this contract. Use
           these points during renegotiation to improve client value.

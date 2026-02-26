@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import FileUpload from './components/FileUpload'
 import AnalysisProgress from './components/AnalysisProgress'
 import ContactForm from './components/ContactForm'
@@ -27,7 +27,14 @@ export default function App() {
         <div className="container">
           <div className="header-inner">
             <div className="header-brand">
-              <span className="header-icon">⚕</span>
+              <span className="header-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="14" width="5" height="9" rx="1.5" fill="white" opacity="0.9"/>
+                  <rect x="9.5" y="8" width="5" height="15" rx="1.5" fill="white" opacity="0.9"/>
+                  <rect x="18" y="3" width="5" height="20" rx="1.5" fill="white" opacity="0.7"/>
+                  <path d="M3.5 14 L12 8 L20.5 3" stroke="#e8ad15" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
               <div>
                 <h1 className="header-title">PBM Contract Analyzer</h1>
                 <p className="header-subtitle">AI-Powered Pharmacy Benefit Analysis</p>
@@ -42,14 +49,13 @@ export default function App() {
         <div className="container">
           <div className="steps-bar">
             {[1, 2, 3, 4].map((s) => (
-              <div
-                key={s}
-                className={`step-item${step === s ? ' active' : ''}${step > s ? ' done' : ''}`}
-              >
-                <div className="step-circle">{step > s ? '✓' : s}</div>
-                <span className="step-text">{STEP_LABELS[s]}</span>
-                {s < 4 && <div className="step-connector" />}
-              </div>
+              <Fragment key={s}>
+                <div className={`step-item${step === s ? ' active' : ''}${step > s ? ' done' : ''}`}>
+                  <div className="step-circle">{step > s ? '✓' : s}</div>
+                  <span className="step-text">{STEP_LABELS[s]}</span>
+                </div>
+                {s < 4 && <div className={`step-connector${step > s ? ' done' : ''}`} />}
+              </Fragment>
             ))}
           </div>
 

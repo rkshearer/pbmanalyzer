@@ -30,11 +30,7 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: var(--bg);
-  background-image:
-    linear-gradient(rgba(30,58,95,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(30,58,95,0.025) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-color: #f1f5f9;
   color: var(--text);
   line-height: 1.6;
   min-height: 100vh;
@@ -83,9 +79,8 @@ body {
 .steps-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  width: 100%;
   margin-bottom: 40px;
-  gap: 0;
 }
 .step-item  { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
 .step-circle {
@@ -101,13 +96,13 @@ body {
   box-shadow: var(--shadow-sm);
 }
 .step-text      { font-size: 12.5px; color: var(--text-muted); font-weight: 500; white-space: nowrap; letter-spacing: -0.1px; }
-.step-connector { width: 56px; height: 2px; background: var(--border); margin: 0 6px; flex-shrink: 0; transition: background 0.28s; }
+.step-connector { flex: 1; min-width: 16px; height: 2px; background: var(--border); margin: 0 4px; transition: background 0.28s; }
 
 .step-item.active .step-circle { background: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 0 0 5px rgba(30,58,95,0.14), var(--shadow-sm); }
 .step-item.active .step-text   { color: var(--primary); font-weight: 700; }
 .step-item.done   .step-circle { background: var(--success); border-color: var(--success); color: white; }
 .step-item.done   .step-text   { color: var(--success); }
-.step-item.done   .step-connector { background: var(--success); }
+.step-connector.done           { background: var(--success); }
 
 .step-content      { max-width: 680px; margin: 0 auto; animation: fadeInUp 0.32s ease forwards; }
 .step-content.wide { max-width: 900px; }
@@ -303,6 +298,12 @@ body {
 }
 .download-bar strong { color: white; }
 .download-bar.bottom { margin-top: 6px; }
+.download-bar.success {
+  background: linear-gradient(135deg, #14532d 0%, #166534 60%, #15803d 100%);
+  box-shadow: 0 4px 16px rgba(21,128,61,0.28);
+  color: #bbf7d0;
+}
+.download-bar.success strong { color: white; }
 
 /* Grade Banner */
 .grade-banner {
@@ -374,6 +375,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .data-table tr:last-child td { border-bottom: none; }
+.data-table tbody tr:nth-child(even) td { background: #f8fafc; }
 .data-table tr:hover td     { background: var(--primary-pale) !important; transition: background 0.12s; }
 .table-label { font-weight: 600; color: var(--text); width: 190px; white-space: nowrap; }
 .table-value { color: var(--text); }
@@ -445,9 +447,8 @@ body {
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 680px) {
-  .steps-bar { gap: 0; }
   .step-text { display: none; }
-  .step-connector { width: 20px; }
+  .step-connector { max-width: 32px; }
   .header-subtitle { display: none; }
   .knowledge-meta, .knowledge-status { display: none; }
   .form-row { grid-template-columns: 1fr; }
