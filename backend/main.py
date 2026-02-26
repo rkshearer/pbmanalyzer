@@ -227,4 +227,5 @@ async def health():
         "status": "ok",
         "sessions_active": len(sessions),
         "leads_captured": count_leads(),
+        "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY")),
     }
