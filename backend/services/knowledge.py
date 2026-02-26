@@ -15,7 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-KNOWLEDGE_FILE = Path(__file__).parent.parent / "knowledge" / "pbm_knowledge.json"
+_DATA_DIR = os.getenv("DATA_DIR", str(Path(__file__).parent.parent))
+KNOWLEDGE_FILE = Path(_DATA_DIR) / "knowledge" / "pbm_knowledge.json"
 
 _lock = threading.Lock()
 
@@ -212,13 +213,17 @@ def format_knowledge_for_prompt(knowledge: dict) -> str:
 
 def periodic_update_worker():
     """Background thread that updates knowledge every 24 hours."""
-    time.sleep(3600)
+    # Run immediately on startup, then every 24 hours
+    try:
+        update_knowledge_base()
+    except Exception as e:
+        print(f"[Knowledge] Initial update error: {e}")
     while True:
+        time.sleep(24 * 3600)
         try:
             update_knowledge_base()
         except Exception as e:
             print(f"[Knowledge] Periodic update error: {e}")
-        time.sleep(24 * 3600)
 
 
 def start_background_updater():
