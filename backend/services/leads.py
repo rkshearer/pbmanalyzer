@@ -75,11 +75,12 @@ def save_lead(contact: ContactInfo, analysis: PBMAnalysisReport, session_id: str
         )
         conn.commit()
 
-    # Email notification — skip silently if not configured
+    # Email notification — log errors but don't break the HTTP response
     try:
         _send_notification(contact, analysis, submitted_at)
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("Email notification failed: %s", exc, exc_info=True)
 
 
 # ── Email notification ────────────────────────────────────────────────────────
