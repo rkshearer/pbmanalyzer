@@ -39,7 +39,9 @@ def save_knowledge(knowledge: dict):
 
 
 def get_knowledge_status() -> dict:
+    from .leads import get_library_benchmarks
     knowledge = load_knowledge()
+    library = get_library_benchmarks()
     return {
         "last_updated": knowledge.get("last_updated", "Never"),
         "update_count": knowledge.get("update_count", 0),
@@ -47,6 +49,7 @@ def get_knowledge_status() -> dict:
         "legislation_count": len(knowledge.get("legislation", [])),
         "industry_trends_count": len(knowledge.get("industry_trends", [])),
         "recent_updates": knowledge.get("knowledge_updates", [])[-5:],
+        "contracts_in_library": library.get("contracts_count", 0),
     }
 
 
@@ -204,6 +207,28 @@ def format_knowledge_for_prompt(knowledge: dict) -> str:
         if common_risks:
             risk_str = ", ".join(r["area"] for r in common_risks)
             sections.append(f"  - Most common risk areas: {risk_str}")
+
+    # Contract library benchmarks (only when ≥3 contracts analyzed)
+    try:
+        from .leads import get_library_benchmarks
+        lib = get_library_benchmarks()
+        if lib.get("contracts_count", 0) >= 3:
+            n = lib["contracts_count"]
+            gd = lib["grade_distribution"]
+            grade_str = ", ".join(f"{g}:{c}" for g, c in gd.items() if c > 0)
+            top = lib.get("top_concerns", [])
+            concern_str = ", ".join(f"{c} ({cnt})" for c, cnt in top) if top else "N/A"
+            sections.append(f"\nINTERNAL CONTRACT LIBRARY ({n} analyzed contracts):")
+            sections.append(f"  - Grade distribution: {grade_str}")
+            sections.append(f"  - Avg brand retail discount: {lib['avg_brand_retail']}")
+            sections.append(f"  - Avg generic retail discount: {lib['avg_generic_retail']}")
+            sections.append(f"  - Avg specialty discount: {lib['avg_specialty']}")
+            sections.append(f"  - Most common red flags: {concern_str}")
+            sections.append(
+                "Use this data to calibrate percentile rankings and relative comparisons."
+            )
+    except Exception as e:
+        print(f"[Knowledge] Could not load contract library: {e}")
 
     last_updated = knowledge.get("last_updated", "Unknown")
     sections.append(f"\n[Knowledge base last updated: {last_updated}]")

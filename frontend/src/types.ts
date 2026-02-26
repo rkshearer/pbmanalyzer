@@ -40,6 +40,18 @@ export interface MarketComparison {
   overall_market_position: string
 }
 
+export interface LibraryComparison {
+  contracts_in_library: number
+  grade_percentile: string
+  grade_distribution: Record<string, number>
+  avg_brand_retail: string
+  avg_generic_retail: string
+  avg_specialty: string
+  this_brand_retail: string
+  this_generic_retail: string
+  this_specialty: string
+}
+
 export interface AnalysisReport {
   executive_summary: string
   contract_overview: ContractOverview
@@ -49,6 +61,7 @@ export interface AnalysisReport {
   negotiation_guidance: string[]
   overall_grade: 'A' | 'B' | 'C' | 'D' | 'F'
   key_concerns: string[]
+  library_comparison?: LibraryComparison
 }
 
 export interface AnalysisStatus {

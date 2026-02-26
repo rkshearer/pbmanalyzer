@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { AnalysisReport, CostRiskItem } from '../types'
+import type { AnalysisReport, CostRiskItem, LibraryComparison } from '../types'
 import { API_BASE_URL } from '../api'
 
 interface Props {
@@ -56,6 +56,73 @@ function SectionCard({ num, title, children }: { num: string; title: string; chi
   )
 }
 
+function LibraryComparisonCard({ lc }: { lc: LibraryComparison }) {
+  const rows: [string, string, string][] = [
+    ['Brand Retail AWP Discount', lc.this_brand_retail, lc.avg_brand_retail],
+    ['Generic Retail AWP Discount', lc.this_generic_retail, lc.avg_generic_retail],
+    ['Specialty AWP Discount', lc.this_specialty, lc.avg_specialty],
+  ]
+  const gradeOrder: Record<string, string[]> = {
+    A: ['#2e7d32', 'var(--success-bg)', 'var(--success-border)'],
+    B: ['#1565c0', 'var(--primary-pale)', '#bfdbfe'],
+    C: ['#f57c00', 'var(--warning-bg)', 'var(--warning-border)'],
+    D: ['#e64a19', '#fff3ed', '#fdba74'],
+    F: ['#c62828', 'var(--danger-bg)', 'var(--danger-border)'],
+  }
+  const isTop = lc.grade_percentile.startsWith('top')
+  const [pctColor, pctBg, pctBorder] = isTop
+    ? ['#2e7d32', 'var(--success-bg)', 'var(--success-border)']
+    : ['#c62828', 'var(--danger-bg)', 'var(--danger-border)']
+
+  const gradeEntries = Object.entries(lc.grade_distribution).filter(([, v]) => v > 0)
+
+  return (
+    <div className="library-comparison">
+      <div className="library-meta">
+        <span className="library-count">
+          Benchmarked against <strong>{lc.contracts_in_library}</strong> contracts in our database
+        </span>
+        <span
+          className="library-percentile"
+          style={{ color: pctColor, background: pctBg, borderColor: pctBorder }}
+        >
+          {lc.grade_percentile}
+        </span>
+      </div>
+
+      <div className="library-grade-dist">
+        {gradeEntries.map(([grade, count]) => {
+          const [color, bg, border] = gradeOrder[grade] ?? ['#64748b', '#f8fafc', '#e2e8f0']
+          return (
+            <span key={grade} className="grade-dist-pill" style={{ color, background: bg, borderColor: border }}>
+              {grade}: {count}
+            </span>
+          )
+        })}
+      </div>
+
+      <table className="data-table pricing-table library-table">
+        <thead>
+          <tr>
+            <th>Pricing Category</th>
+            <th>This Contract</th>
+            <th>Library Average</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, thisVal, avgVal]) => (
+            <tr key={label}>
+              <td>{label}</td>
+              <td><strong>{thisVal}</strong></td>
+              <td className="benchmark">{avgVal}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function ReportView({ analysis, downloadUrl }: Props) {
   const gradeColor = GRADE_COLORS[analysis.overall_grade] ?? '#1e3a5f'
 
@@ -71,6 +138,8 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
   const co = analysis.contract_overview
   const pt = analysis.pricing_terms
   const mc = analysis.market_comparison
+  const lc = analysis.library_comparison
+  const sn = (n: number) => String(lc ? n + 1 : n).padStart(2, '0')
 
   return (
     <div className="report-section">
@@ -104,8 +173,15 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
         </div>
       </div>
 
+      {/* Library Comparison (only when ≥3 contracts in library) */}
+      {lc && (
+        <SectionCard num="01" title="Library Comparison">
+          <LibraryComparisonCard lc={lc} />
+        </SectionCard>
+      )}
+
       {/* Executive Summary */}
-      <SectionCard num="01" title="Executive Summary">
+      <SectionCard num={sn(1)} title="Executive Summary">
         {analysis.executive_summary.split('\n\n').map((para, i) =>
           para.trim() ? (
             <p key={i} className="section-body">
@@ -116,7 +192,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Key Concerns */}
-      <SectionCard num="02" title="Key Concerns">
+      <SectionCard num={sn(2)} title="Key Concerns">
         <div className="concerns-list">
           {analysis.key_concerns.map((concern, i) => (
             <div key={i} className="concern-item">
@@ -128,7 +204,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Contract Overview */}
-      <SectionCard num="03" title="Contract Overview">
+      <SectionCard num={sn(3)} title="Contract Overview">
         <table className="data-table">
           <tbody>
             {(
@@ -151,7 +227,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Pricing Terms */}
-      <SectionCard num="04" title="Pricing Terms">
+      <SectionCard num={sn(4)} title="Pricing Terms">
         <table className="data-table pricing-table">
           <thead>
             <tr>
@@ -188,7 +264,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Market Comparison */}
-      <SectionCard num="05" title="Market Comparison">
+      <SectionCard num={sn(5)} title="Market Comparison">
         <table className="data-table pricing-table">
           <thead>
             <tr>
@@ -240,7 +316,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Cost Risk Areas */}
-      <SectionCard num="06" title="Cost Risk Areas">
+      <SectionCard num={sn(6)} title="Cost Risk Areas">
         <div className="risk-list">
           {analysis.cost_risk_areas.map((risk: CostRiskItem, i) => (
             <div key={i} className={`risk-item risk-border-${risk.risk_level.toLowerCase()}`}>
@@ -258,7 +334,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       </SectionCard>
 
       {/* Negotiation Guidance */}
-      <SectionCard num="07" title="Negotiation Guidance">
+      <SectionCard num={sn(7)} title="Negotiation Guidance">
         <p className="section-intro">
           The following recommendations are specific to the terms found in this contract. Use
           these points during renegotiation to improve client value.

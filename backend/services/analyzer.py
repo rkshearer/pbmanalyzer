@@ -10,12 +10,39 @@ import anthropic
 from .models import (
     PBMAnalysisReport,
     ContractOverview,
+    LibraryComparison,
     PricingTerms,
     CostRiskItem,
     MarketComparison,
     SessionStatus,
 )
 from .knowledge import load_knowledge, format_knowledge_for_prompt, record_analysis_insights
+from .leads import save_contract, get_library_benchmarks
+
+_GRADE_ORDER = {"A": 4, "B": 3, "C": 2, "D": 1, "F": 0}
+
+
+def _build_library_comparison(analysis: PBMAnalysisReport, benchmarks: dict) -> LibraryComparison:
+    total = benchmarks["contracts_count"]
+    this_order = _GRADE_ORDER.get(analysis.overall_grade, 2)
+    worse = sum(1 for g in benchmarks["grades"] if _GRADE_ORDER.get(g, 2) < this_order)
+    pct = round(worse / total * 100) if total > 0 else 0
+    if pct > 50:
+        grade_percentile = f"top {max(1, 100 - pct)}%"
+    else:
+        grade_percentile = f"bottom {max(1, pct)}%"
+    pt = analysis.pricing_terms
+    return LibraryComparison(
+        contracts_in_library=total,
+        grade_percentile=grade_percentile,
+        grade_distribution=benchmarks["grade_distribution"],
+        avg_brand_retail=benchmarks["avg_brand_retail"],
+        avg_generic_retail=benchmarks["avg_generic_retail"],
+        avg_specialty=benchmarks["avg_specialty"],
+        this_brand_retail=pt.brand_retail_awp_discount,
+        this_generic_retail=pt.generic_retail_awp_discount,
+        this_specialty=pt.specialty_awp_discount,
+    )
 
 
 ANALYSIS_TOOL = {
@@ -240,6 +267,15 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
             record_analysis_insights(analysis)
         except Exception as e:
             print(f"[Analyzer] Failed to record insights: {e}")
+
+        # Save to contract library and build comparison
+        try:
+            save_contract(session_id, analysis, text)
+            benchmarks = get_library_benchmarks()
+            if benchmarks.get("contracts_count", 0) >= 3:
+                analysis.library_comparison = _build_library_comparison(analysis, benchmarks)
+        except Exception as e:
+            print(f"[Analyzer] Failed to save/compare contract library: {e}")
 
         # Clean up Files API file
         if file_id:

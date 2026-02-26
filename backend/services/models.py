@@ -53,6 +53,18 @@ class MarketComparison(BaseModel):
     overall_market_position: str
 
 
+class LibraryComparison(BaseModel):
+    contracts_in_library: int
+    grade_percentile: str            # e.g. "bottom 18%" or "top 34%"
+    grade_distribution: dict[str, int]
+    avg_brand_retail: str
+    avg_generic_retail: str
+    avg_specialty: str
+    this_brand_retail: str
+    this_generic_retail: str
+    this_specialty: str
+
+
 class PBMAnalysisReport(BaseModel):
     executive_summary: str
     contract_overview: ContractOverview
@@ -62,6 +74,7 @@ class PBMAnalysisReport(BaseModel):
     negotiation_guidance: list[str]
     overall_grade: str
     key_concerns: list[str]
+    library_comparison: Optional[LibraryComparison] = None
 
 
 class SessionStatus(str, Enum):
