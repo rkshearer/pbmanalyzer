@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { AnalysisStatus, AnalysisReport, KnowledgeStatus } from './types'
 
 const api = axios.create({
-  baseURL: '',
+  baseURL: import.meta.env.VITE_API_URL ?? '',
   timeout: 300000,
 })
 

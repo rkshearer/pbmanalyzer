@@ -16,8 +16,10 @@ from email.mime.text import MIMEText
 
 from .models import ContactInfo, PBMAnalysisReport
 
-# leads.db lives at backend/leads.db (one level above this services/ directory)
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "leads.db")
+# DB lives in DATA_DIR (env var) so Railway volume persistence works.
+# Falls back to backend/ directory for local dev.
+_DATA_DIR = os.getenv("DATA_DIR", os.path.join(os.path.dirname(__file__), ".."))
+DB_PATH = os.path.join(_DATA_DIR, "leads.db")
 
 
 # ── Database setup ────────────────────────────────────────────────────────────

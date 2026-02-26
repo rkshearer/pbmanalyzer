@@ -26,7 +26,8 @@ from services.report_gen import generate_pdf_report
 
 load_dotenv()
 
-REPORTS_DIR = os.path.join(os.path.dirname(__file__), "reports")
+_DATA_DIR = os.getenv("DATA_DIR", os.path.dirname(__file__))
+REPORTS_DIR = os.path.join(_DATA_DIR, "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 sessions: dict[str, SessionData] = {}
@@ -42,9 +43,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PBM Contract Analyzer", lifespan=lifespan)
 
+_origins = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
+_frontend_url = os.getenv("FRONTEND_URL", "").strip()
+if _frontend_url:
+    _origins.append(_frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
