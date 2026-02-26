@@ -557,7 +557,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
         story.append(row)
         story.append(Spacer(1, 5))
 
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.18 * inch))
 
     # ── 03 CONTRACT OVERVIEW ────────────────────────────────────────────────
     story += section_header(sn(3), "Contract Overview", styles)
@@ -708,9 +708,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
         risk_color = RISK_COLORS.get(risk.risk_level.lower(), MUTED)
         risk_label = risk.risk_level.upper()
 
-        # Each risk is a 2-row, 2-column table:
-        # Row 0: [area name]  [HIGH/MED/LOW badge]
-        # Row 1: [description] [financial impact]
+        # 3-row layout: [name | badge] / [description, full-width] / [impact, full-width]
         risk_block = Table(
             [
                 [
@@ -726,41 +724,48 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
                 ],
                 [
                     Paragraph(risk.description, styles["table_cell"]),
+                    "",
+                ],
+                [
                     Paragraph(
-                        f"Est. Impact:\n{risk.financial_impact}",
+                        f"<b>Est. Impact:</b> {risk.financial_impact}",
                         ParagraphStyle(
                             f"ri{risk.area[:4]}", parent=styles["table_cell"],
-                            textColor=risk_color, fontName="Helvetica-Bold",
+                            textColor=risk_color,
                         ),
                     ),
+                    "",
                 ],
             ],
             colWidths=[CONTENT_W - 0.9 * inch, 0.9 * inch],
         )
         risk_block.setStyle(TableStyle([
-            # Row 0 backgrounds
+            # Row 0: name + badge
             ("BACKGROUND", (0, 0), (0, 0), LIGHT_BG),
             ("BACKGROUND", (1, 0), (1, 0), risk_color),
-            # Row 1 backgrounds
-            ("BACKGROUND", (0, 1), (0, 1), WHITE),
-            ("BACKGROUND", (1, 1), (1, 1), colors.HexColor("#f8fafc")),
-            # Thick left accent stripe (overrides box on left edge)
+            # Rows 1-2: span full width
+            ("SPAN",       (0, 1), (1, 1)),
+            ("SPAN",       (0, 2), (1, 2)),
+            ("BACKGROUND", (0, 1), (-1, 1), WHITE),
+            ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#f8fafc")),
+            # Left accent stripe
             ("LINEBEFORE", (0, 0), (0, -1), 5, risk_color),
             # Borders
             ("BOX",        (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d9e0")),
             ("LINEBELOW",  (0, 0), (-1, 0),  0.5, colors.HexColor("#d1d9e0")),
+            ("LINEBELOW",  (0, 1), (-1, 1),  0.5, colors.HexColor("#edf2f7")),
             # Padding
             ("TOPPADDING",    (0, 0), (-1, -1), 8),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ("LEFTPADDING",   (0, 0), (0, -1), 14),
-            ("RIGHTPADDING",  (0, 0), (0, -1), 10),
-            ("LEFTPADDING",   (1, 0), (1, 0), 4),
-            ("RIGHTPADDING",  (1, 0), (1, 0), 4),
-            ("LEFTPADDING",   (1, 1), (1, 1), 10),
-            ("RIGHTPADDING",  (1, 1), (1, 1), 10),
+            ("LEFTPADDING",   (0, 0), (0, 0),  14),
+            ("RIGHTPADDING",  (0, 0), (0, 0),  10),
+            ("LEFTPADDING",   (1, 0), (1, 0),   4),
+            ("RIGHTPADDING",  (1, 0), (1, 0),   4),
+            ("LEFTPADDING",   (0, 1), (0, 2),  14),
+            ("RIGHTPADDING",  (0, 1), (0, 2),  14),
             ("VALIGN",  (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN",   (1, 0), (1, 0),   "CENTER"),
-            ("VALIGN",  (0, 1), (-1, 1),  "TOP"),
+            ("VALIGN",  (0, 1), (-1, -1), "TOP"),
         ]))
         story.append(KeepTogether([risk_block, Spacer(1, 9)]))
 
