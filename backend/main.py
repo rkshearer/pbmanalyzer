@@ -223,9 +223,13 @@ async def trigger_knowledge_update():
 
 @app.get("/api/health")
 async def health():
+    from services.leads import DB_PATH
     return {
         "status": "ok",
         "sessions_active": len(sessions),
         "leads_captured": count_leads(),
         "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY")),
+        "data_dir": _DATA_DIR,
+        "db_path": DB_PATH,
+        "db_exists": os.path.exists(DB_PATH),
     }
