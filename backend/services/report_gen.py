@@ -352,6 +352,10 @@ def get_assessment_style(assessment: str):
 def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
                         output_path: str):
     analysis_date = datetime.now().strftime("%B %d, %Y")
+    # Shift section numbers by 1 when Library Comparison card is present (matches web UI)
+    _o = 1 if analysis.library_comparison else 0
+    def sn(n: int) -> str:
+        return f"{n + _o:02d}"
 
     doc = SimpleDocTemplate(
         output_path,
@@ -384,14 +388,14 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
     story.append(PageBreak())
 
     # ── 01 EXECUTIVE SUMMARY ────────────────────────────────────────────────
-    story += section_header("01", "Executive Summary", styles)
+    story += section_header(sn(1), "Executive Summary", styles)
     for para in analysis.executive_summary.split("\n\n"):
         if para.strip():
             story.append(Paragraph(para.strip(), styles["body"]))
     story.append(Spacer(1, 0.18 * inch))
 
     # ── 02 KEY CONCERNS ─────────────────────────────────────────────────────
-    story += section_header("02", "Key Concerns", styles)
+    story += section_header(sn(2), "Key Concerns", styles)
 
     for i, concern in enumerate(analysis.key_concerns, 1):
         row = Table(
@@ -424,7 +428,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
     story.append(PageBreak())
 
     # ── 03 CONTRACT OVERVIEW ────────────────────────────────────────────────
-    story += section_header("03", "Contract Overview", styles)
+    story += section_header(sn(3), "Contract Overview", styles)
 
     co = analysis.contract_overview
     overview_data = [
@@ -459,7 +463,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
     story.append(Spacer(1, 0.3 * inch))
 
     # ── 04 PRICING TERMS ────────────────────────────────────────────────────
-    story += section_header("04", "Pricing Terms", styles)
+    story += section_header(sn(4), "Pricing Terms", styles)
 
     pt = analysis.pricing_terms
     pricing_rows = [
@@ -501,7 +505,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
     story.append(PageBreak())
 
     # ── 05 MARKET COMPARISON ────────────────────────────────────────────────
-    story += section_header("05", "Market Comparison", styles)
+    story += section_header(sn(5), "Market Comparison", styles)
 
     mc = analysis.market_comparison
     comp_rows = [
@@ -566,7 +570,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
     story.append(Spacer(1, 0.25 * inch))
 
     # ── 06 COST RISK AREAS ──────────────────────────────────────────────────
-    story += section_header("06", "Cost Risk Areas", styles)
+    story += section_header(sn(6), "Cost Risk Areas", styles)
 
     for risk in analysis.cost_risk_areas:
         risk_color = RISK_COLORS.get(risk.risk_level.lower(), MUTED)
@@ -631,7 +635,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
     story.append(PageBreak())
 
     # ── 07 NEGOTIATION GUIDANCE ─────────────────────────────────────────────
-    story += section_header("07", "Negotiation Guidance", styles)
+    story += section_header(sn(7), "Negotiation Guidance", styles)
     story.append(Paragraph(
         "The following recommendations are specific to the terms found in this contract. "
         "Present these points during renegotiation to improve client value.",
