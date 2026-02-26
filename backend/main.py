@@ -223,32 +223,32 @@ async def trigger_knowledge_update():
 
 @app.get("/api/debug/email")
 async def debug_email():
-    """Test SMTP configuration and return result. Remove after debugging."""
-    import smtplib
+    """Test Resend email configuration and return result. Remove after debugging."""
+    import requests as _requests
     notify_email = os.getenv("NOTIFY_EMAIL", "").strip()
-    smtp_host    = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port    = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user    = os.getenv("SMTP_USER", "").strip()
-    smtp_pass    = os.getenv("SMTP_PASS", "").strip()
+    api_key      = os.getenv("RESEND_API_KEY", "").strip()
+    from_address = os.getenv("NOTIFY_FROM", "PBM Analyzer <onboarding@resend.dev>")
 
     config = {
         "NOTIFY_EMAIL_set": bool(notify_email),
-        "SMTP_USER_set": bool(smtp_user),
-        "SMTP_PASS_set": bool(smtp_pass),
-        "SMTP_PASS_length": len(smtp_pass),
-        "smtp_host": smtp_host,
-        "smtp_port": smtp_port,
+        "RESEND_API_KEY_set": bool(api_key),
+        "RESEND_API_KEY_length": len(api_key),
+        "from_address": from_address,
     }
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(
-                smtp_user, notify_email,
-                f"Subject: PBM Email Test\n\nSMTP config is working."
-            )
+        resp = _requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "from": from_address,
+                "to": [notify_email],
+                "subject": "PBM Analyzer — Email Test",
+                "html": "<p>SMTP config is working via Resend.</p>",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
         return {"status": "ok", "message": f"Test email sent to {notify_email}", **config}
     except Exception as exc:
         return {"status": "error", "error": str(exc), **config}

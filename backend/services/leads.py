@@ -7,12 +7,10 @@ Optionally sends an email notification via SMTP on each new lead.
 import csv
 import io
 import json
+import logging
 import os
-import smtplib
 import sqlite3
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from .models import ContactInfo, PBMAnalysisReport
 
@@ -79,7 +77,6 @@ def save_lead(contact: ContactInfo, analysis: PBMAnalysisReport, session_id: str
     try:
         _send_notification(contact, analysis, submitted_at)
     except Exception as exc:
-        import logging
         logging.getLogger(__name__).error("Email notification failed: %s", exc, exc_info=True)
 
 
@@ -88,17 +85,18 @@ def save_lead(contact: ContactInfo, analysis: PBMAnalysisReport, session_id: str
 def _send_notification(contact: ContactInfo, analysis: PBMAnalysisReport,
                        submitted_at: str):
     """
-    Send an HTML email to NOTIFY_EMAIL using SMTP credentials from .env.
-    Required env vars: NOTIFY_EMAIL, SMTP_USER, SMTP_PASS
-    Optional:          SMTP_HOST (default: smtp.gmail.com), SMTP_PORT (default: 587)
+    Send an HTML email via Resend API (HTTPS — works on Railway).
+    Required env vars: RESEND_API_KEY, NOTIFY_EMAIL
+    Optional:          NOTIFY_FROM (default: onboarding@resend.dev for testing,
+                       or your verified domain sender)
     """
-    notify_email = os.getenv("NOTIFY_EMAIL", "").strip()
-    smtp_host    = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port    = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user    = os.getenv("SMTP_USER", "").strip()
-    smtp_pass    = os.getenv("SMTP_PASS", "").strip()
+    import requests as _requests
 
-    if not (notify_email and smtp_user and smtp_pass):
+    api_key      = os.getenv("RESEND_API_KEY", "").strip()
+    notify_email = os.getenv("NOTIFY_EMAIL", "").strip()
+    from_address = os.getenv("NOTIFY_FROM", "PBM Analyzer <onboarding@resend.dev>")
+
+    if not (api_key and notify_email):
         return  # Not configured — skip silently
 
     grade_color = {
@@ -116,7 +114,7 @@ def _send_notification(contact: ContactInfo, analysis: PBMAnalysisReport,
                 max-width:580px;margin:0 auto;">
       <div style="background:#1e3a5f;padding:20px 28px;border-radius:8px 8px 0 0;">
         <h2 style="color:white;margin:0;font-size:18px;">
-          ⚕ New PBM Analysis Lead
+          New PBM Analysis Lead
         </h2>
       </div>
       <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;
@@ -170,18 +168,19 @@ def _send_notification(contact: ContactInfo, analysis: PBMAnalysisReport,
     </div>
     """
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = (f"New PBM Lead: {contact.first_name} {contact.last_name}"
-                      f" — {contact.company} (Grade {analysis.overall_grade})")
-    msg["From"] = smtp_user
-    msg["To"]   = notify_email
-    msg.attach(MIMEText(body_html, "html"))
-
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
-        server.ehlo()
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, notify_email, msg.as_string())
+    resp = _requests.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "from": from_address,
+            "to": [notify_email],
+            "subject": (f"New PBM Lead: {contact.first_name} {contact.last_name}"
+                        f" — {contact.company} (Grade {analysis.overall_grade})"),
+            "html": body_html,
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
 
 
 # ── Queries ───────────────────────────────────────────────────────────────────
