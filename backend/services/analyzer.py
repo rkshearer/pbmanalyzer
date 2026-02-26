@@ -162,6 +162,9 @@ IMPORTANT RULES:
 - Flag any terms that are aggressive, unusual, or potentially costly
 - The grade should reflect the TRUE market position — most contracts are C or D, not A or B
 - Negotiation guidance must be specific to the issues found, not generic advice
+- For specialty rebates and other lower-confidence benchmarks, note the uncertainty: e.g. "specialty rebate benchmarks vary significantly by plan design and drug mix — this assessment is directional"
+- When comparing to benchmarks, always note whether the contract uses pass-through or spread pricing, as this changes how every other metric should be interpreted
+- Rebate guarantees are always PMPY (per member per year) not PEPM; do not confuse these units
 
 Write for benefits consultants who will present this to employer clients."""
 
