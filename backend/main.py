@@ -248,7 +248,9 @@ async def debug_email():
             },
             timeout=10,
         )
-        resp.raise_for_status()
+        detail = resp.json() if resp.content else {}
+        if not resp.ok:
+            return {"status": "error", "http_status": resp.status_code, "detail": detail, **config}
         return {"status": "ok", "message": f"Test email sent to {notify_email}", **config}
     except Exception as exc:
         return {"status": "error", "error": str(exc), **config}
