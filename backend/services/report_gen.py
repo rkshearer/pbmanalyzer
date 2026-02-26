@@ -387,6 +387,138 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
     story.append(Spacer(1, 0.01))
     story.append(PageBreak())
 
+    # ── 01 LIBRARY COMPARISON (only when library has ≥3 contracts) ──────────
+    if analysis.library_comparison:
+        lc = analysis.library_comparison
+        story += section_header("01", "Library Comparison", styles)
+
+        # Summary line: count + percentile badge
+        is_top = lc.grade_percentile.startswith("top")
+        pct_color = colors.HexColor("#16a34a") if is_top else colors.HexColor("#dc2626")
+        pct_bg    = colors.HexColor("#f0fdf4") if is_top else colors.HexColor("#fef2f2")
+        pct_border= colors.HexColor("#86efac") if is_top else colors.HexColor("#fca5a5")
+
+        summary_row = Table(
+            [[
+                Paragraph(
+                    f"Benchmarked against <b>{lc.contracts_in_library}</b> contracts in our database",
+                    styles["body_left"],
+                ),
+                Paragraph(
+                    lc.grade_percentile,
+                    ParagraphStyle(
+                        "lc_pct", parent=styles["body_left"],
+                        textColor=pct_color, fontName="Helvetica-Bold",
+                        fontSize=11, alignment=TA_CENTER,
+                    ),
+                ),
+            ]],
+            colWidths=[CONTENT_W - 1.4 * inch, 1.4 * inch],
+        )
+        summary_row.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (0, 0), LIGHT_BG),
+            ("BACKGROUND",    (1, 0), (1, 0), pct_bg),
+            ("BOX",           (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d9e0")),
+            ("LINEAFTER",     (0, 0), (0, 0), 0.5, colors.HexColor("#d1d9e0")),
+            ("LINEBEFORE",    (0, 0), (0, -1), 4, ACCENT),
+            ("BOX",           (1, 0), (1, 0), 1, pct_border),
+            ("TOPPADDING",    (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ("LEFTPADDING",   (0, 0), (0, 0),  14),
+            ("RIGHTPADDING",  (0, 0), (0, 0),  10),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        story.append(summary_row)
+        story.append(Spacer(1, 0.14 * inch))
+
+        # Grade distribution pills row
+        GRADE_PILL_COLORS = {
+            "A": (colors.HexColor("#f0fdf4"), colors.HexColor("#16a34a"), colors.HexColor("#86efac")),
+            "B": (colors.HexColor("#eff6ff"), colors.HexColor("#1d4ed8"), colors.HexColor("#bfdbfe")),
+            "C": (colors.HexColor("#fffbeb"), colors.HexColor("#d97706"), colors.HexColor("#fcd34d")),
+            "D": (colors.HexColor("#fff7ed"), colors.HexColor("#ea580c"), colors.HexColor("#fdba74")),
+            "F": (colors.HexColor("#fef2f2"), colors.HexColor("#dc2626"), colors.HexColor("#fca5a5")),
+        }
+        dist_cells = []
+        for grade in ["A", "B", "C", "D", "F"]:
+            count = lc.grade_distribution.get(grade, 0)
+            if count == 0:
+                continue
+            bg, fg, border = GRADE_PILL_COLORS.get(grade, (LIGHT_BG, DARK_TEXT, colors.HexColor("#d1d9e0")))
+            cell = Table(
+                [[Paragraph(f"{grade}: {count}", ParagraphStyle(
+                    f"gp{grade}", parent=styles["body_left"],
+                    textColor=fg, fontName="Helvetica-Bold",
+                    fontSize=10, alignment=TA_CENTER, spaceAfter=0,
+                ))]],
+                colWidths=[0.7 * inch],
+            )
+            cell.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, -1), bg),
+                ("BOX",           (0, 0), (-1, -1), 1, border),
+                ("TOPPADDING",    (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
+            ]))
+            dist_cells.append(cell)
+
+        if dist_cells:
+            # Pad row to CONTENT_W with spacers
+            pill_row = Table(
+                [dist_cells],
+                colWidths=[0.7 * inch] * len(dist_cells),
+            )
+            pill_row.setStyle(TableStyle([
+                ("LEFTPADDING",  (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(pill_row)
+            story.append(Spacer(1, 0.16 * inch))
+
+        # Pricing comparison table
+        pricing_comp_data = [
+            [
+                Paragraph("Pricing Category",  styles["table_header"]),
+                Paragraph("This Contract",     styles["table_header"]),
+                Paragraph("Library Average",   styles["table_header"]),
+            ],
+            [
+                Paragraph("Brand Retail AWP Discount",   styles["table_cell"]),
+                Paragraph(lc.this_brand_retail,          styles["table_cell_bold"]),
+                Paragraph(lc.avg_brand_retail,           styles["table_cell_muted"]),
+            ],
+            [
+                Paragraph("Generic Retail AWP Discount", styles["table_cell"]),
+                Paragraph(lc.this_generic_retail,        styles["table_cell_bold"]),
+                Paragraph(lc.avg_generic_retail,         styles["table_cell_muted"]),
+            ],
+            [
+                Paragraph("Specialty AWP Discount",      styles["table_cell"]),
+                Paragraph(lc.this_specialty,             styles["table_cell_bold"]),
+                Paragraph(lc.avg_specialty,              styles["table_cell_muted"]),
+            ],
+        ]
+        pricing_comp_table = Table(
+            pricing_comp_data,
+            colWidths=[2.8 * inch, 2.0 * inch, 2.0 * inch],
+        )
+        pricing_comp_table.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, 0),  PRIMARY),
+            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [WHITE, LIGHT_BG]),
+            ("BOX",           (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d9e0")),
+            ("INNERGRID",     (0, 0), (-1, -1), 0.25, colors.HexColor("#d1d9e0")),
+            ("LINEBEFORE",    (0, 0), (0, -1),  4, ACCENT),
+            ("TOPPADDING",    (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        story.append(pricing_comp_table)
+        story.append(Spacer(1, 0.25 * inch))
+
     # ── 01 EXECUTIVE SUMMARY ────────────────────────────────────────────────
     story += section_header(sn(1), "Executive Summary", styles)
     for para in analysis.executive_summary.split("\n\n"):
