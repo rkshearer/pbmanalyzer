@@ -141,7 +141,7 @@ async def submit_contact_and_get_report(session_id: str, contact_data: ContactFo
 
     # Save lead to SQLite + fire email notification in background thread
     loop = asyncio.get_event_loop()
-    asyncio.create_task(
+    asyncio.ensure_future(
         loop.run_in_executor(
             None, save_lead, contact_info, session.analysis_result, session_id
         )
