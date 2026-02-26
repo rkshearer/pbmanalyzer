@@ -219,43 +219,6 @@ async def trigger_knowledge_update():
     return {"success": True, **result}
 
 
-# ── Debug Endpoints ───────────────────────────────────────────────────────────
-
-@app.get("/api/debug/email")
-async def debug_email():
-    """Test Resend email configuration and return result. Remove after debugging."""
-    import requests as _requests
-    notify_email = os.getenv("NOTIFY_EMAIL", "").strip()
-    api_key      = os.getenv("RESEND_API_KEY", "").strip()
-    from_address = os.getenv("NOTIFY_FROM", "PBM Analyzer <onboarding@resend.dev>")
-
-    config = {
-        "NOTIFY_EMAIL_set": bool(notify_email),
-        "RESEND_API_KEY_set": bool(api_key),
-        "RESEND_API_KEY_length": len(api_key),
-        "from_address": from_address,
-    }
-
-    try:
-        resp = _requests.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={
-                "from": from_address,
-                "to": [notify_email],
-                "subject": "PBM Analyzer — Email Test",
-                "html": "<p>SMTP config is working via Resend.</p>",
-            },
-            timeout=10,
-        )
-        detail = resp.json() if resp.content else {}
-        if not resp.ok:
-            return {"status": "error", "http_status": resp.status_code, "detail": detail, **config}
-        return {"status": "ok", "message": f"Test email sent to {notify_email}", **config}
-    except Exception as exc:
-        return {"status": "error", "error": str(exc), **config}
-
-
 # ── Health Check ──────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
