@@ -634,7 +634,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
         ("VALIGN",        (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(pricing_table)
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.25 * inch))
 
     # ── 05 MARKET COMPARISON ────────────────────────────────────────────────
     story += section_header(sn(5), "Market Comparison", styles)
@@ -769,7 +769,7 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
         ]))
         story.append(KeepTogether([risk_block, Spacer(1, 9)]))
 
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.25 * inch))
 
     # ── 07 NEGOTIATION GUIDANCE ─────────────────────────────────────────────
     story += section_header(sn(7), "Negotiation Guidance", styles)
