@@ -3,12 +3,16 @@ PBM Contract Analyzer — FastAPI Backend
 """
 
 import asyncio
+import hmac
+import logging
 import os
+import time
 import uuid
+from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
@@ -26,19 +30,57 @@ from services.report_gen import generate_pdf_report
 
 load_dotenv()
 
+logger = logging.getLogger("pbm")
+
 _DATA_DIR = os.getenv("DATA_DIR", os.path.dirname(__file__))
 REPORTS_DIR = os.path.join(_DATA_DIR, "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 sessions: dict[str, SessionData] = {}
 
+# ── Rate limiting ────────────────────────────────────────────────────────────
+_RATE_LIMIT_WINDOW = 60  # seconds
+_RATE_LIMIT_MAX_ANALYZE = int(os.getenv("RATE_LIMIT_ANALYZE", "5"))
+_rate_log: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate_limit(client_ip: str) -> bool:
+    """Return True if the request is allowed, False if rate-limited."""
+    now = time.monotonic()
+    window_start = now - _RATE_LIMIT_WINDOW
+    _rate_log[client_ip] = [t for t in _rate_log[client_ip] if t > window_start]
+    if len(_rate_log[client_ip]) >= _RATE_LIMIT_MAX_ANALYZE:
+        return False
+    _rate_log[client_ip].append(now)
+    return True
+
+
+# ── Session cleanup ──────────────────────────────────────────────────────────
+_SESSION_MAX_AGE = 3600  # 1 hour
+
+
+async def _cleanup_stale_sessions():
+    """Periodically remove sessions older than _SESSION_MAX_AGE."""
+    while True:
+        await asyncio.sleep(300)
+        now = time.time()
+        stale = [
+            sid for sid, s in sessions.items()
+            if now - s.created_at > _SESSION_MAX_AGE
+        ]
+        for sid in stale:
+            sessions.pop(sid, None)
+        if stale:
+            logger.info("Cleaned up %d stale sessions", len(stale))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize leads database and start background knowledge updater
     init_db()
     start_background_updater()
+    cleanup_task = asyncio.create_task(_cleanup_stale_sessions())
     yield
+    cleanup_task.cancel()
 
 
 app = FastAPI(title="PBM Contract Analyzer", lifespan=lifespan)
@@ -68,7 +110,15 @@ async def _run_analysis(session_id: str, text: str):
 
 
 @app.post("/api/analyze")
-async def analyze_contract(file: UploadFile = File(...)):
+async def analyze_contract(request: Request, file: UploadFile = File(...)):
+    # Rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many analysis requests. Please wait a minute before trying again.",
+        )
+
     filename = file.filename or ""
     if not filename.lower().endswith((".pdf", ".docx", ".doc")):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported.")
@@ -77,13 +127,19 @@ async def analyze_contract(file: UploadFile = File(...)):
     if len(file_bytes) > 50 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size must not exceed 50MB.")
 
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
     try:
         text = extract_text(file_bytes, filename)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
 
     if not text.strip():
-        raise HTTPException(status_code=400, detail="No readable text found in the file.")
+        raise HTTPException(
+            status_code=400,
+            detail="No readable text found in the file. The PDF may be image-based — try a text-based document.",
+        )
 
     session_id = str(uuid.uuid4())
     sessions[session_id] = SessionData()
@@ -96,7 +152,7 @@ async def analyze_contract(file: UploadFile = File(...)):
 @app.get("/api/status/{session_id}")
 async def get_status(session_id: str):
     if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found.")
+        raise HTTPException(status_code=404, detail="Session not found or expired.")
 
     session = sessions[session_id]
     return {
@@ -119,7 +175,7 @@ class ContactFormData(BaseModel):
 @app.post("/api/report/{session_id}")
 async def submit_contact_and_get_report(session_id: str, contact_data: ContactFormData):
     if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found.")
+        raise HTTPException(status_code=404, detail="Session not found or expired.")
 
     session = sessions[session_id]
 
@@ -137,7 +193,8 @@ async def submit_contact_and_get_report(session_id: str, contact_data: ContactFo
         generate_pdf_report(session.analysis_result, contact_info, pdf_path)
         session.pdf_path = pdf_path
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate PDF report: {str(e)}")
+        logger.error("PDF generation failed for %s: %s", session_id, e)
+        raise HTTPException(status_code=500, detail="Failed to generate PDF report. Please try again.")
 
     # Save lead to SQLite + fire email notification in background thread
     loop = asyncio.get_event_loop()
@@ -157,7 +214,7 @@ async def submit_contact_and_get_report(session_id: str, contact_data: ContactFo
 @app.get("/api/download/{session_id}")
 async def download_report(session_id: str):
     if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found.")
+        raise HTTPException(status_code=404, detail="Session not found or expired.")
 
     session = sessions[session_id]
 
@@ -192,11 +249,14 @@ async def export_leads(key: str = Query(..., description="Export secret key")):
     export_key = os.getenv("LEADS_EXPORT_KEY", "").strip()
     if not export_key:
         raise HTTPException(status_code=503, detail="Leads export not configured (set LEADS_EXPORT_KEY in .env).")
-    if key != export_key:
+
+    # Timing-safe comparison to prevent timing attacks
+    if not hmac.compare_digest(key.encode(), export_key.encode()):
         raise HTTPException(status_code=403, detail="Invalid export key.")
 
     csv_content = export_leads_csv()
-    filename = f"pbm_leads_{__import__('datetime').datetime.utcnow().strftime('%Y%m%d')}.csv"
+    from datetime import datetime, timezone
+    filename = f"pbm_leads_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     return Response(
         content=csv_content,
         media_type="text/csv",

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { submitContactForm, type ContactFormData } from '../api'
+import { submitContactForm, extractErrorMessage, type ContactFormData } from '../api'
 import type { AnalysisReport } from '../types'
 
 interface Props {
@@ -61,11 +61,7 @@ export default function ContactForm({ sessionId, onSubmit }: Props) {
       const result = await submitContactForm(sessionId, form)
       onSubmit(result.analysis, result.download_url)
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error && 'response' in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : undefined
-      setServerError(msg ?? 'Something went wrong. Please try again.')
+      setServerError(extractErrorMessage(err, 'Something went wrong. Please try again.'))
       setLoading(false)
     }
   }
@@ -78,7 +74,7 @@ export default function ContactForm({ sessionId, onSubmit }: Props) {
   ) => (
     <div className="form-group">
       <label className="form-label" htmlFor={id}>
-        {label} *
+        {label} <span aria-hidden="true">*</span>
       </label>
       <input
         id={id}
@@ -88,8 +84,11 @@ export default function ContactForm({ sessionId, onSubmit }: Props) {
         value={form[id]}
         onChange={(e) => handleChange(id, e.target.value)}
         autoComplete={id === 'email' ? 'email' : id === 'phone' ? 'tel' : 'on'}
+        required
+        aria-invalid={errors[id] ? 'true' : undefined}
+        aria-describedby={errors[id] ? `${id}-error` : undefined}
       />
-      {errors[id] && <span className="form-error">{errors[id]}</span>}
+      {errors[id] && <span className="form-error" id={`${id}-error`} role="alert">{errors[id]}</span>}
     </div>
   )
 
@@ -99,7 +98,12 @@ export default function ContactForm({ sessionId, onSubmit }: Props) {
         <div className="contact-accent" />
         <div className="contact-inner">
         <div className="contact-header">
-          <div className="success-badge">✓ Analysis Complete</div>
+          <div className="success-badge" aria-label="Analysis complete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Analysis Complete
+          </div>
           <h2 className="contact-title">Get Your Full Report</h2>
           <p className="contact-subtitle">
             Your PBM contract analysis is ready. Enter your contact information to access the
@@ -116,15 +120,15 @@ export default function ContactForm({ sessionId, onSubmit }: Props) {
           {field('phone', 'Phone Number', 'tel', '(555) 555-5555')}
           {field('company', 'Company', 'text', 'Acme Benefits Consulting')}
 
-          {serverError && <div className="server-error">{serverError}</div>}
+          {serverError && <div className="server-error" role="alert">{serverError}</div>}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? (
               <>
-                <span className="btn-spinner" /> Generating Report...
+                <span className="btn-spinner" aria-hidden="true" /> Generating Report...
               </>
             ) : (
-              'View Full Report →'
+              'View Full Report'
             )}
           </button>
         </form>

@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../api'
 interface Props {
   analysis: AnalysisReport
   downloadUrl: string
+  onNewAnalysis?: () => void
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -123,7 +124,7 @@ function LibraryComparisonCard({ lc }: { lc: LibraryComparison }) {
   )
 }
 
-export default function ReportView({ analysis, downloadUrl }: Props) {
+export default function ReportView({ analysis, downloadUrl, onNewAnalysis }: Props) {
   const gradeColor = GRADE_COLORS[analysis.overall_grade] ?? '#1e3a5f'
 
   const handleDownload = () => {
@@ -146,18 +147,23 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
       {/* Top download bar */}
       <div className="download-bar success">
         <div>
-          <strong>✓ Analysis complete.</strong> Review the full report below or download the
+          <strong>Analysis complete.</strong> Review the full report below or download the
           formatted PDF.
         </div>
         <button className="btn btn-download" onClick={handleDownload}>
-          ↓ Download PDF Report
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{marginRight: 4}}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="7,10 12,15 17,10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Download PDF Report
         </button>
       </div>
 
       {/* Overall Grade */}
       <div className="grade-banner" style={{ borderLeftColor: gradeColor, backgroundColor: hexToRgba(gradeColor, 0.05) }}>
         <div className="grade-left">
-          <div className="grade-letter" style={{ color: gradeColor }}>
+          <div className="grade-letter" style={{ color: gradeColor }} aria-label={`Grade: ${analysis.overall_grade}`}>
             {analysis.overall_grade}
           </div>
         </div>
@@ -196,7 +202,7 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
         <div className="concerns-list">
           {analysis.key_concerns.map((concern, i) => (
             <div key={i} className="concern-item">
-              <span className="concern-num">{i + 1}</span>
+              <span className="concern-num" aria-hidden="true">{i + 1}</span>
               <span>{concern}</span>
             </div>
           ))}
@@ -348,12 +354,24 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
         </ol>
       </SectionCard>
 
-      {/* Bottom download */}
+      {/* Bottom action bar */}
       <div className="download-bar bottom">
         <div>Ready to share this analysis with your client?</div>
-        <button className="btn btn-download" onClick={handleDownload}>
-          ⬇ Download PDF Report
-        </button>
+        <div className="download-bar-actions">
+          {onNewAnalysis && (
+            <button className="btn btn-outline" onClick={onNewAnalysis}>
+              Analyze Another Contract
+            </button>
+          )}
+          <button className="btn btn-download" onClick={handleDownload}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{marginRight: 4}}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="7,10 12,15 17,10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Download PDF
+          </button>
+        </div>
       </div>
     </div>
   )

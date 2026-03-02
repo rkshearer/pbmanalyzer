@@ -26,6 +26,7 @@
   --shadow-sm:      0 1px 3px rgba(0,0,0,0.07), 0 2px 8px rgba(30,58,95,0.06);
   --shadow:         0 2px 6px rgba(0,0,0,0.06), 0 6px 20px rgba(30,58,95,0.09);
   --shadow-lg:      0 4px 12px rgba(0,0,0,0.07), 0 12px 40px rgba(30,58,95,0.12);
+  --focus-ring:     0 0 0 3px rgba(30,58,95,0.25);
 }
 
 body {
@@ -35,6 +36,39 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── Accessibility ──────────────────────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 1000;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border-radius: 0 0 8px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ── Layout ──────────────────────────────────────────────────────────────── */
@@ -116,10 +150,21 @@ body {
   text-decoration: none; letter-spacing: -0.1px;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible { box-shadow: var(--focus-ring); }
 
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:not(:disabled):hover { background: var(--primary-light); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(30,58,95,0.28); }
 .btn-primary:not(:disabled):active { transform: translateY(0); }
+
+.btn-outline {
+  background: transparent;
+  color: white;
+  border: 1.5px solid rgba(255,255,255,0.4);
+}
+.btn-outline:not(:disabled):hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.7);
+}
 
 .btn-full    { width: 100%; font-size: 16px; padding: 14px; border-radius: 10px; font-weight: 700; }
 
@@ -182,9 +227,13 @@ body {
   background: var(--primary-pale);
   transform: scale(1.005);
 }
+.upload-zone:focus-visible {
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
 .upload-zone.has-file { border-style: solid; border-color: var(--success); background: var(--success-bg); cursor: default; transform: none; }
 
-.upload-icon    { font-size: 42px; line-height: 1; }
+.upload-icon    { line-height: 1; }
 .upload-heading { font-size: 17px; font-weight: 700; color: var(--text); }
 .upload-subtext { color: var(--text-muted); font-size: 14px; }
 .upload-divider { display: flex; align-items: center; width: 100%; max-width: 180px; gap: 10px; color: var(--text-muted); font-size: 13px; }
@@ -196,9 +245,10 @@ body {
   cursor: pointer; transition: all 0.18s;
 }
 .browse-btn:hover { background: var(--primary); color: white; }
+.browse-btn:focus-visible { box-shadow: var(--focus-ring); }
 
 .file-selected { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 460px; }
-.file-icon     { font-size: 34px; line-height: 1; }
+.file-icon     { line-height: 1; flex-shrink: 0; }
 .file-meta     { flex: 1; text-align: left; }
 .file-name     { display: block; font-weight: 700; font-size: 14.5px; color: var(--primary); word-break: break-all; }
 .file-size     { display: block; color: var(--text-muted); font-size: 13px; margin-top: 3px; }
@@ -210,7 +260,7 @@ body {
 .file-remove:hover { background: var(--danger-bg); border-color: var(--danger); }
 
 .upload-error  { background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger); padding: 11px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
-.upload-footer { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 14px; }
+.upload-footer { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 2px; }
 
 /* ── Progress ────────────────────────────────────────────────────────────── */
 .progress-section { padding: 4px 0; }
@@ -248,13 +298,68 @@ body {
 .progress-bar      { height: 100%; background: linear-gradient(90deg, #1e3a5f, #3b82f6); border-radius: 99px; transition: width 0.7s cubic-bezier(.4,0,.2,1); }
 .progress-pct      { color: var(--text-muted); font-size: 13px; font-weight: 600; margin-bottom: 32px; }
 
+.progress-retry-notice {
+  color: var(--warning);
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  padding: 6px 12px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 6px;
+  display: inline-block;
+}
+
 .progress-info     { background: #f8fafc; border-radius: 9px; padding: 18px 22px; text-align: left; border: 1px solid var(--border); }
 .progress-info p   { color: var(--text-muted); font-size: 13.5px; line-height: 1.7; }
 .progress-info p + p { margin-top: 7px; }
 
 .error-card      { border: 2px solid var(--danger-border); }
-.error-icon      { font-size: 42px; margin-bottom: 18px; }
+.error-icon      {
+  width: 56px; height: 56px; margin: 0 auto 18px;
+  background: var(--danger);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 800;
+}
 .error-message   { color: var(--text-muted); margin-bottom: 26px; font-size: 15px; }
+
+/* ── Error Boundary ─────────────────────────────────────────────────────── */
+.error-boundary { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; background: #f1f5f9; }
+.error-boundary-card {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 48px;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+}
+.error-boundary-icon {
+  width: 64px; height: 64px; margin: 0 auto 20px;
+  background: var(--danger);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; font-weight: 900;
+}
+.error-boundary-title { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 10px; }
+.error-boundary-message { color: var(--text-muted); font-size: 15px; margin-bottom: 20px; }
+.error-boundary-details {
+  text-align: left;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.error-boundary-details summary {
+  font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; margin-bottom: 8px;
+}
+.error-boundary-details code {
+  font-size: 12px; color: var(--danger); word-break: break-all;
+}
 
 /* ── Contact Form ────────────────────────────────────────────────────────── */
 .contact-section { padding: 4px 0; }
@@ -304,6 +409,7 @@ body {
   color: #bbf7d0;
 }
 .download-bar.success strong { color: white; }
+.download-bar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
 /* Grade Banner */
 .grade-banner {
@@ -484,7 +590,17 @@ body {
   .grade-banner { flex-direction: column; text-align: center; padding: 22px 20px; }
   .grade-letter { font-size: 72px; }
   .download-bar { flex-direction: column; text-align: center; }
+  .download-bar-actions { flex-direction: column; width: 100%; }
+  .download-bar-actions .btn { width: 100%; }
   .table-label { width: 120px; font-size: 13px; }
   .pricing-table { font-size: 12.5px; }
   .progress-card { padding: 40px 24px; }
+  .error-boundary-card { padding: 32px 20px; }
+}
+
+@media (max-width: 480px) {
+  .container { padding: 0 16px; }
+  .upload-zone { padding: 32px 16px; min-height: 160px; }
+  .grade-letter { font-size: 56px; }
+  .step-circle { width: 32px; height: 32px; font-size: 12px; }
 }

@@ -92,3 +92,4 @@ class SessionData:
         self.contact_info: Optional[ContactInfo] = None
         self.pdf_path: Optional[str] = None
         self.error_message: Optional[str] = None
+        self.created_at: float = __import__("time").time()

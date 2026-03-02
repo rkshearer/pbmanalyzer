@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { uploadContract } from '../api'
+import { uploadContract, extractErrorMessage } from '../api'
 
 interface Props {
   onSuccess: (sessionId: string) => void
@@ -23,6 +23,10 @@ export default function FileUpload({ onSuccess }: Props) {
     }
     if (f.size > MAX_SIZE_MB * 1024 * 1024) {
       setError(`File size must not exceed ${MAX_SIZE_MB}MB.`)
+      return
+    }
+    if (f.size === 0) {
+      setError('The selected file is empty.')
       return
     }
     setFile(f)
@@ -52,11 +56,7 @@ export default function FileUpload({ onSuccess }: Props) {
       const { session_id } = await uploadContract(file)
       onSuccess(session_id)
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error && 'response' in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : undefined
-      setError(msg ?? 'Upload failed. Please try again.')
+      setError(extractErrorMessage(err, 'Upload failed. Please try again.'))
       setLoading(false)
     }
   }
@@ -85,10 +85,24 @@ export default function FileUpload({ onSuccess }: Props) {
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
           onClick={() => !file && openFilePicker()}
+          role={file ? undefined : 'button'}
+          tabIndex={file ? undefined : 0}
+          aria-label={file ? undefined : 'Upload a PBM contract file'}
+          onKeyDown={(e) => {
+            if (!file && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault()
+              openFilePicker()
+            }
+          }}
         >
           {file ? (
             <div className="file-selected">
-              <div className="file-icon">📄</div>
+              <div className="file-icon" aria-hidden="true">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="#1e3a5f" strokeWidth="1.5" fill="#e8f0fe"/>
+                  <polyline points="14,2 14,8 20,8" stroke="#1e3a5f" strokeWidth="1.5" fill="none"/>
+                </svg>
+              </div>
               <div className="file-meta">
                 <span className="file-name">{file.name}</span>
                 <span className="file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
@@ -96,6 +110,7 @@ export default function FileUpload({ onSuccess }: Props) {
               <button
                 className="file-remove"
                 title="Remove file"
+                aria-label={`Remove ${file.name}`}
                 onClick={(e) => {
                   e.stopPropagation()
                   setFile(null)
@@ -107,7 +122,13 @@ export default function FileUpload({ onSuccess }: Props) {
             </div>
           ) : (
             <>
-              <div className="upload-icon">📁</div>
+              <div className="upload-icon" aria-hidden="true">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polyline points="17,8 12,3 7,8" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="12" y1="3" x2="12" y2="15" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
               <p className="upload-heading">Drop your PBM contract here</p>
               <p className="upload-subtext">PDF or DOCX &nbsp;·&nbsp; Max {MAX_SIZE_MB}MB</p>
               <div className="upload-divider">
@@ -132,9 +153,10 @@ export default function FileUpload({ onSuccess }: Props) {
           accept=".pdf,.docx,.doc"
           onChange={handleFileInput}
           style={{ display: 'none' }}
+          aria-label="Select a PBM contract file"
         />
 
-        {error && <div className="upload-error">{error}</div>}
+        {error && <div className="upload-error" role="alert">{error}</div>}
 
         <button
           className="btn btn-primary btn-full"
@@ -143,7 +165,7 @@ export default function FileUpload({ onSuccess }: Props) {
         >
           {loading ? (
             <>
-              <span className="btn-spinner" /> Uploading...
+              <span className="btn-spinner" aria-hidden="true" /> Uploading...
             </>
           ) : (
             'Analyze Contract'
@@ -151,7 +173,11 @@ export default function FileUpload({ onSuccess }: Props) {
         </button>
 
         <div className="upload-footer">
-          🔒 Your contract is processed securely and never stored permanently.
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:'inline', verticalAlign:'middle', marginRight: 4}}>
+            <rect x="3" y="11" width="18" height="11" rx="2" stroke="#64748b" strokeWidth="1.5"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          Your contract is processed securely and never stored permanently.
         </div>
         </div>
       </div>
