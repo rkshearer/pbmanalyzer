@@ -127,7 +127,7 @@ export default function AnalysisProgress({ sessionId, onComplete }: Props) {
             Claude is performing deep analysis of your PBM contract — extracting all pricing
             terms, identifying cost risk areas, and comparing to current market benchmarks.
           </p>
-          <p>This typically takes 30–90 seconds depending on contract length.</p>
+          <p>This typically takes 15–45 seconds depending on contract length.</p>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 """
 Claude API integration for PBM contract analysis.
-Uses the Files API for efficient document handling and extended thinking
-for deep domain-specific contract analysis.
+Uses the Files API for efficient document handling and Sonnet
+for fast structured extraction via tool_use.
 """
 
 import io
@@ -296,49 +296,27 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
 
 def _call_claude_with_fallbacks(client, system_prompt, messages, use_files_api: bool):
     """
-    Try Claude API calls with progressive fallbacks:
-    1. Files API + extended thinking + tool_use
-    2. Files API + tool_use (no thinking)
-    3. Direct text + thinking + tool_use
-    4. Direct text + tool_use only
+    Try Claude API calls with fallback from Files API to direct text.
+    Uses Sonnet for fast structured extraction via tool_use.
     """
     common_kwargs = {
-        "model": "claude-opus-4-6",
-        "max_tokens": 16000,
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 8000,
         "system": system_prompt,
         "messages": messages,
         "tools": [ANALYSIS_TOOL],
         "tool_choice": {"type": "tool", "name": "analyze_pbm_contract"},
     }
 
-    # Attempt 1: Files API + thinking
+    # Attempt 1: Files API
     if use_files_api:
         try:
             return client.beta.messages.create(
                 **common_kwargs,
                 betas=["files-api-2025-04-14"],
-                thinking={"type": "enabled", "budget_tokens": 8000},
             )
         except Exception as e:
-            print(f"[Analyzer] Files API + thinking failed: {e}")
+            print(f"[Analyzer] Files API failed ({e}), falling back to direct text")
 
-        # Attempt 2: Files API without thinking
-        try:
-            return client.beta.messages.create(
-                **common_kwargs,
-                betas=["files-api-2025-04-14"],
-            )
-        except Exception as e:
-            print(f"[Analyzer] Files API (no thinking) failed: {e}")
-
-    # Attempt 3: Direct text + thinking
-    try:
-        return client.messages.create(
-            **common_kwargs,
-            thinking={"type": "enabled", "budget_tokens": 8000},
-        )
-    except Exception as e:
-        print(f"[Analyzer] Direct text + thinking failed: {e}")
-
-    # Attempt 4: Direct text, no thinking
+    # Attempt 2: Direct text
     return client.messages.create(**common_kwargs)
