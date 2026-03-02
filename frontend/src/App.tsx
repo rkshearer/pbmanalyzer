@@ -37,7 +37,7 @@ export default function App() {
         <header className="header" role="banner">
           <div className="container">
             <div className="header-inner">
-              <div className="header-brand">
+              <button className="header-brand" onClick={handleReset} aria-label="Return to home">
                 <span className="header-icon" aria-hidden="true">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="1" y="14" width="5" height="9" rx="1.5" fill="white" opacity="0.9"/>
@@ -50,7 +50,7 @@ export default function App() {
                   <h1 className="header-title">PBM Contract Analyzer</h1>
                   <p className="header-subtitle">AI-Powered Pharmacy Benefit Analysis</p>
                 </div>
-              </div>
+              </button>
               <KnowledgeStatus />
             </div>
           </div>

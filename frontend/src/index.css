@@ -93,7 +93,11 @@ body {
   box-shadow: 0 2px 20px rgba(0,0,0,0.22);
 }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.header-brand { display: flex; align-items: center; gap: 14px; }
+.header-brand {
+  display: flex; align-items: center; gap: 14px;
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left;
+}
+.header-brand:hover .header-title { opacity: 0.85; }
 .header-icon {
   font-size: 26px;
   width: 44px; height: 44px;
