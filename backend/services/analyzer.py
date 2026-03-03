@@ -296,29 +296,40 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
 
 def _call_claude_with_fallbacks(client, system_prompt, messages, use_files_api: bool):
     """
-    Call Claude with adaptive thinking (required on claude-opus-4-6; budget_tokens deprecated).
+    Call Claude for contract analysis.
     Attempt 1: Files API (beta) + adaptive thinking.
-    Attempt 2: Direct text + adaptive thinking (fallback if Files API unavailable).
+    Attempt 2: Direct text + adaptive thinking.
+    Attempt 3: Direct text without thinking (SDK version fallback).
     """
-    common_kwargs = {
+    base_kwargs = {
         "model": "claude-opus-4-6",
         "max_tokens": 24000,
         "system": system_prompt,
         "messages": messages,
         "tools": [ANALYSIS_TOOL],
         "tool_choice": {"type": "tool", "name": "analyze_pbm_contract"},
-        "thinking": {"type": "adaptive"},
     }
 
     # Attempt 1: Files API (beta) + adaptive thinking
     if use_files_api:
         try:
             return client.beta.messages.create(
-                **common_kwargs,
+                **base_kwargs,
+                thinking={"type": "adaptive"},
                 betas=["files-api-2025-04-14"],
             )
         except Exception as e:
-            print(f"[Analyzer] Files API failed ({type(e).__name__}: {e}), falling back to direct text")
+            print(f"[Analyzer] Files API+thinking failed ({type(e).__name__}: {e}), trying direct text")
 
     # Attempt 2: Direct text + adaptive thinking
-    return client.messages.create(**common_kwargs)
+    try:
+        return client.messages.create(
+            **base_kwargs,
+            thinking={"type": "adaptive"},
+        )
+    except TypeError as e:
+        # SDK too old to support thinking parameter — fall back gracefully
+        print(f"[Analyzer] thinking param unsupported ({e}), retrying without thinking")
+
+    # Attempt 3: Direct text without thinking (works on any SDK version)
+    return client.messages.create(**base_kwargs)
