@@ -296,7 +296,10 @@ async def get_stored_analysis(session_id: str):
             detail="Full analysis not available for this contract (pre-dates history feature).",
         )
 
-    analysis = PBMAnalysisReport(**json.loads(analysis_json))
+    try:
+        analysis = PBMAnalysisReport(**json.loads(analysis_json))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Stored analysis data is corrupted.")
 
     # Restore in-memory session so download/chat/negotiate still work
     sessions[session_id] = SessionData()
@@ -561,7 +564,10 @@ def _get_analysis(session_id: str) -> Optional[PBMAnalysisReport]:
 
     row = get_contract_by_session(session_id)
     if row and row.get("analysis_json"):
-        analysis = PBMAnalysisReport(**json.loads(row["analysis_json"]))
+        try:
+            analysis = PBMAnalysisReport(**json.loads(row["analysis_json"]))
+        except Exception:
+            return None
         # Restore session so subsequent calls (download, chat) work without DB hit
         sessions[session_id] = SessionData()
         sessions[session_id].status = SessionStatus.COMPLETE

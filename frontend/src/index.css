@@ -646,6 +646,13 @@ body {
 .history-concern-list     { display: flex; flex-direction: column; gap: 8px; }
 .history-concern-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .history-concern-freq     { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.history-concern-chip {
+  display: block; background: var(--danger-bg); color: #7f1d1d;
+  border: 1px solid var(--danger-border); border-radius: 6px;
+  font-size: 12px; padding: 3px 9px; line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; flex: 1;
+}
 .history-concern-chip--risk {
   background: #fef2f2; color: #7f1d1d;
   border-color: #fca5a5;

@@ -182,7 +182,7 @@ export default function History() {
             {stats.top_concerns.length > 0
               ? stats.top_concerns.map(([concern, count], i) => (
                   <div key={i} className="history-concern-stat-row">
-                    <span className="history-concern-chip">{concern}</span>
+                    <span className="history-concern-chip" title={concern}>{concern}</span>
                     <span className="history-concern-freq">{count}×</span>
                   </div>
                 ))
@@ -196,7 +196,7 @@ export default function History() {
             {(stats.top_risk_areas ?? []).length > 0
               ? stats.top_risk_areas.map(([area, count], i) => (
                   <div key={i} className="history-concern-stat-row">
-                    <span className="history-concern-chip history-concern-chip--risk">{area}</span>
+                    <span className="history-concern-chip history-concern-chip--risk" title={area}>{area}</span>
                     <span className="history-concern-freq">{count}×</span>
                   </div>
                 ))

@@ -61,7 +61,7 @@ def init_db():
         # Migration: add analysis_json column if it doesn't exist yet
         try:
             conn.execute("ALTER TABLE contracts ADD COLUMN analysis_json TEXT")
-        except Exception:
+        except sqlite3.OperationalError:
             pass  # Column already exists
 
         # Broker profile table (single-row, upsert on save)
