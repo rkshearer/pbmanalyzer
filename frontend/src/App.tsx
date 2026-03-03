@@ -5,11 +5,12 @@ import ContactForm from './components/ContactForm'
 import ReportView from './components/ReportView'
 import KnowledgeStatus from './components/KnowledgeStatus'
 import CompareView from './components/CompareView'
+import RevisionFlow from './components/RevisionFlow'
 import History from './pages/History'
 import type { AnalysisReport } from './types'
 
 type Step = 1 | 2 | 3 | 4
-type Page = 'main' | 'history' | 'compare'
+type Page = 'main' | 'history' | 'compare' | 'revision'
 
 const STEP_LABELS: Record<number, string> = {
   1: 'Upload Contract',
@@ -37,6 +38,11 @@ export default function App() {
   const handleCompare = (sid: string) => {
     setCompareSessionId(sid)
     setPage('compare')
+  }
+
+  const handleStartRevision = (sid: string) => {
+    setSessionId(sid)
+    setPage('revision')
   }
 
   return (
@@ -99,6 +105,16 @@ export default function App() {
             </div>
           )}
 
+          {/* Revision page */}
+          {page === 'revision' && sessionId && (
+            <div className="step-content wide">
+              <RevisionFlow
+                originalSessionId={sessionId}
+                onBack={() => setPage('main')}
+              />
+            </div>
+          )}
+
           {/* Main wizard */}
           {page === 'main' && (
             <>
@@ -148,6 +164,7 @@ export default function App() {
                     downloadUrl={downloadUrl}
                     sessionId={sessionId}
                     onCompare={handleCompare}
+                    onStartRevision={handleStartRevision}
                   />
                 )}
               </div>

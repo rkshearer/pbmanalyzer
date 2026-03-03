@@ -74,6 +74,16 @@ export async function getCompareData(
   return response.data
 }
 
+export async function getRevisionComparison(
+  originalId: string,
+  revisedId: string,
+): Promise<import('./types').RevisionCompareData> {
+  const response = await api.get('/api/compare-revisions', {
+    params: { original: originalId, revised: revisedId },
+  })
+  return response.data
+}
+
 /** Download the negotiation letter DOCX and trigger browser save. */
 export async function downloadNegotiationLetter(sessionId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/negotiate/${sessionId}`, {

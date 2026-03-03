@@ -127,3 +127,36 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
+
+export interface PricingDelta {
+  term: string
+  original_val: string
+  revised_val: string
+  delta: string
+  improved: boolean | null
+}
+
+export interface RevisionSide {
+  session_id: string
+  pbm_name: string
+  uploaded_at: string | null
+  overall_grade: string
+  key_concerns: string[]
+}
+
+export interface RevisionCompareData {
+  original: RevisionSide
+  revised: RevisionSide
+  grade_change: {
+    from_grade: string
+    to_grade: string
+    improved: boolean
+    regressed: boolean
+  }
+  pricing_deltas: PricingDelta[]
+  concerns_resolved: string[]
+  concerns_new: string[]
+  concerns_remaining: string[]
+  improvements_count: number
+  regressions_count: number
+}

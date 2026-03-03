@@ -8,6 +8,7 @@ interface Props {
   downloadUrl: string | null
   sessionId: string
   onCompare: (sessionId: string) => void
+  onStartRevision: (sessionId: string) => void
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -283,7 +284,7 @@ function ChatPanel({ sessionId }: { sessionId: string }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function ReportView({ analysis, downloadUrl, sessionId, onCompare }: Props) {
+export default function ReportView({ analysis, downloadUrl, sessionId, onCompare, onStartRevision }: Props) {
   const gradeColor = GRADE_COLORS[analysis.overall_grade] ?? '#1e3a5f'
   const [letterLoading, setLetterLoading] = useState(false)
   const [rfpLoading, setRfpLoading] = useState(false)
@@ -364,6 +365,13 @@ export default function ReportView({ analysis, downloadUrl, sessionId, onCompare
             title="Compare with another contract"
           >
             ⇄ Compare
+          </button>
+          <button
+            className="btn btn-action"
+            onClick={() => onStartRevision(sessionId)}
+            title="Upload the renegotiated contract for a before/after comparison"
+          >
+            ↺ Upload Revised Contract
           </button>
         </div>
       </div>

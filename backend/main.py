@@ -454,6 +454,25 @@ async def health():
     }
 
 
+# ── Revision Comparison ───────────────────────────────────────────────────────
+
+@app.get("/api/compare-revisions")
+async def compare_revisions(
+    original: str = Query(..., description="Session ID of the original contract"),
+    revised: str = Query(..., description="Session ID of the revised contract"),
+):
+    """Return a before/after delta comparison between the original and renegotiated contract."""
+    orig_analysis = _get_analysis(original)
+    rev_analysis  = _get_analysis(revised)
+
+    if not orig_analysis:
+        raise HTTPException(status_code=404, detail="Original contract analysis not found.")
+    if not rev_analysis:
+        raise HTTPException(status_code=404, detail="Revised contract analysis not found.")
+
+    return _build_revision_delta(original, orig_analysis, revised, rev_analysis)
+
+
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _get_analysis(session_id: str) -> Optional[PBMAnalysisReport]:
@@ -474,3 +493,130 @@ def _get_analysis(session_id: str) -> Optional[PBMAnalysisReport]:
         return analysis
 
     return None
+
+
+def _build_revision_delta(
+    original_id: str,
+    orig: PBMAnalysisReport,
+    revised_id: str,
+    rev: PBMAnalysisReport,
+) -> dict:
+    """Compute a structured before/after delta between two analyses."""
+    import re as _re
+
+    _GRADE_ORDER = {"A": 4, "B": 3, "C": 2, "D": 1, "F": 0}
+
+    def _pct(s: str) -> Optional[float]:
+        """Extract the first percentage number from a pricing string."""
+        m = _re.search(r"(\d+(?:\.\d+)?)\s*%", s or "")
+        return float(m.group(1)) if m else None
+
+    def _dollar(s: str) -> Optional[float]:
+        """Extract the first dollar amount (or bare number before PMPY/PEPM) from a string."""
+        # Match $1,234.56 or $123
+        m = _re.search(r"\$\s*(\d[\d,]*(?:\.\d+)?)", s or "")
+        if m:
+            return float(m.group(1).replace(",", ""))
+        # Match bare number followed by PMPY / PEPM / per
+        m2 = _re.search(r"(\d+(?:\.\d+)?)\s*(?:PMPY|PEPM|per\b)", s or "", _re.I)
+        return float(m2.group(1)) if m2 else None
+
+    def _delta_row(term: str, orig_val: str, rev_val: str, higher_is_better: bool) -> dict:
+        """Build one row in the pricing_deltas array."""
+        pct_o, pct_r = _pct(orig_val), _pct(rev_val)
+        dol_o, dol_r = _dollar(orig_val), _dollar(rev_val)
+
+        # Prefer percentage comparison for AWP-style terms
+        if pct_o is not None and pct_r is not None:
+            diff = pct_r - pct_o
+            if diff == 0:
+                return {"term": term, "original_val": orig_val, "revised_val": rev_val,
+                        "delta": "no change", "improved": None}
+            sign = "+" if diff > 0 else ""
+            arrow = "↑" if diff > 0 else "↓"
+            improved = (diff > 0) == higher_is_better
+            return {"term": term, "original_val": orig_val, "revised_val": rev_val,
+                    "delta": f"{sign}{diff:.1f}% {arrow}", "improved": improved}
+
+        if dol_o is not None and dol_r is not None:
+            diff = dol_r - dol_o
+            if diff == 0:
+                return {"term": term, "original_val": orig_val, "revised_val": rev_val,
+                        "delta": "no change", "improved": None}
+            sign = "+" if diff > 0 else ""
+            arrow = "↑" if diff > 0 else "↓"
+            improved = (diff > 0) == higher_is_better
+            return {"term": term, "original_val": orig_val, "revised_val": rev_val,
+                    "delta": f"{sign}${abs(diff):.0f} {arrow}", "improved": improved}
+
+        # Fallback: text comparison
+        changed = (orig_val or "").strip().lower() != (rev_val or "").strip().lower()
+        return {"term": term, "original_val": orig_val, "revised_val": rev_val,
+                "delta": "changed" if changed else "no change", "improved": None}
+
+    opt, rpt = orig.pricing_terms, rev.pricing_terms
+
+    pricing_deltas = [
+        _delta_row("Brand Retail AWP Discount",   opt.brand_retail_awp_discount,   rpt.brand_retail_awp_discount,   True),
+        _delta_row("Brand Mail AWP Discount",     opt.brand_mail_awp_discount,     rpt.brand_mail_awp_discount,     True),
+        _delta_row("Generic Retail AWP Discount", opt.generic_retail_awp_discount, rpt.generic_retail_awp_discount, True),
+        _delta_row("Generic Mail AWP Discount",   opt.generic_mail_awp_discount,   rpt.generic_mail_awp_discount,   True),
+        _delta_row("Specialty AWP Discount",      opt.specialty_awp_discount,      rpt.specialty_awp_discount,      True),
+        _delta_row("Retail Dispensing Fee",       opt.retail_dispensing_fee,       rpt.retail_dispensing_fee,       False),
+        _delta_row("Mail Dispensing Fee",         opt.mail_dispensing_fee,         rpt.mail_dispensing_fee,         False),
+        _delta_row("Rebate Guarantee",            opt.rebate_guarantee,            rpt.rebate_guarantee,            True),
+        _delta_row("Admin Fees",                  opt.admin_fees,                  rpt.admin_fees,                  False),
+    ]
+
+    # Grade delta
+    og = _GRADE_ORDER.get(orig.overall_grade, 2)
+    rg = _GRADE_ORDER.get(rev.overall_grade, 2)
+    grade_improved = rg > og
+    grade_regressed = rg < og
+
+    # Concern diff (fuzzy: strip whitespace before comparing)
+    def _norm(s: str) -> str:
+        return s.strip().lower()
+
+    orig_concerns_norm = {_norm(c): c for c in orig.key_concerns}
+    rev_concerns_norm  = {_norm(c): c for c in rev.key_concerns}
+
+    concerns_resolved  = [orig_concerns_norm[k] for k in orig_concerns_norm if k not in rev_concerns_norm]
+    concerns_new       = [rev_concerns_norm[k]  for k in rev_concerns_norm  if k not in orig_concerns_norm]
+    concerns_remaining = [orig_concerns_norm[k] for k in orig_concerns_norm if k in rev_concerns_norm]
+
+    improvements = sum(1 for d in pricing_deltas if d["improved"] is True)
+    regressions  = sum(1 for d in pricing_deltas if d["improved"] is False)
+
+    # Pull timestamps from DB for display
+    orig_row = get_contract_by_session(original_id) or {}
+    rev_row  = get_contract_by_session(revised_id) or {}
+
+    return {
+        "original": {
+            "session_id": original_id,
+            "pbm_name": orig.contract_overview.parties,
+            "uploaded_at": orig_row.get("uploaded_at"),
+            "overall_grade": orig.overall_grade,
+            "key_concerns": orig.key_concerns,
+        },
+        "revised": {
+            "session_id": revised_id,
+            "pbm_name": rev.contract_overview.parties,
+            "uploaded_at": rev_row.get("uploaded_at"),
+            "overall_grade": rev.overall_grade,
+            "key_concerns": rev.key_concerns,
+        },
+        "grade_change": {
+            "from_grade": orig.overall_grade,
+            "to_grade": rev.overall_grade,
+            "improved": grade_improved,
+            "regressed": grade_regressed,
+        },
+        "pricing_deltas": pricing_deltas,
+        "concerns_resolved": concerns_resolved,
+        "concerns_new": concerns_new,
+        "concerns_remaining": concerns_remaining,
+        "improvements_count": improvements,
+        "regressions_count": regressions,
+    }

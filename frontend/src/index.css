@@ -758,6 +758,170 @@ body {
   animation: spin 0.75s linear infinite;
 }
 
+/* ── Revision Flow ───────────────────────────────────────────────────────── */
+.revision-flow { animation: fadeInUp 0.28s ease forwards; }
+.revision-flow-header {
+  display: flex; align-items: flex-start; gap: 16px; margin-bottom: 28px;
+}
+.revision-flow-title   { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; }
+.revision-flow-subtitle { font-size: 13.5px; color: var(--text-muted); margin-top: 3px; }
+
+.revision-steps-row {
+  display: flex; align-items: center; gap: 0; margin-bottom: 36px;
+}
+.revision-step {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; color: var(--text-muted);
+  flex-shrink: 0;
+}
+.revision-step.active { color: var(--primary); font-weight: 700; }
+.revision-step.done   { color: var(--success); }
+.revision-step-circle {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
+.revision-step.active .revision-step-circle { background: var(--primary); color: white; border-color: var(--primary); }
+.revision-step.done   .revision-step-circle { background: var(--success); color: white; border-color: var(--success); }
+.revision-step-connector { flex: 1; height: 2px; background: var(--border); margin: 0 8px; min-width: 20px; }
+
+.revision-error-page { display: flex; justify-content: center; padding: 48px 0; }
+.revision-error-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 40px; text-align: center; max-width: 420px; box-shadow: var(--shadow);
+}
+.revision-error-icon  { font-size: 40px; margin-bottom: 16px; }
+.revision-error-card h3  { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.revision-error-card p   { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
+.revision-error-actions  { display: flex; gap: 10px; justify-content: center; }
+
+/* ── Revision Compare View ───────────────────────────────────────────────── */
+.revision-view { animation: fadeInUp 0.28s ease forwards; }
+.revision-header {
+  display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px;
+}
+.revision-title    { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; }
+.revision-subtitle { font-size: 13.5px; color: var(--text-muted); margin-top: 3px; }
+
+/* Outcome banner */
+.revision-outcome-banner {
+  border: 1.5px solid; border-radius: var(--radius);
+  padding: 28px 32px; margin-bottom: 28px;
+  display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.revision-grade-change {
+  display: flex; align-items: center; gap: 20px; flex-shrink: 0;
+}
+.revision-grade-block { text-align: center; }
+.revision-grade-letter {
+  font-size: 64px; font-weight: 900; line-height: 1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.revision-grade-label { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.revision-grade-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+.revision-arrow { font-size: 32px; font-weight: 300; opacity: 0.6; }
+
+/* Stats row */
+.revision-stats {
+  display: flex; gap: 28px; flex-wrap: wrap; flex: 1;
+}
+.revision-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.revision-stat-num {
+  font-size: 28px; font-weight: 900; line-height: 1;
+}
+.revision-stat-good    { color: var(--success); }
+.revision-stat-bad     { color: var(--danger); }
+.revision-stat-neutral { color: var(--text-muted); }
+.revision-stat-label   { font-size: 11px; color: var(--text-muted); text-align: center; font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.revision-outcome-label {
+  font-size: 15px; font-weight: 700; letter-spacing: -0.2px;
+  margin-left: auto; white-space: nowrap;
+}
+
+/* Sections */
+.revision-section { margin-bottom: 28px; }
+.revision-section-title {
+  font-size: 16px; font-weight: 700; color: var(--text);
+  margin-bottom: 14px; letter-spacing: -0.2px;
+}
+
+/* Pricing delta table */
+.revision-table-wrap { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.revision-table {
+  width: 100%; border-collapse: collapse;
+  background: var(--card); font-size: 14px;
+  border-radius: var(--radius); overflow: hidden;
+}
+.revision-table thead th {
+  background: var(--primary); color: white;
+  padding: 12px 16px; text-align: left;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+}
+.revision-table tbody tr { border-bottom: 1px solid var(--border); }
+.revision-table tbody tr:last-child { border-bottom: none; }
+.revision-table tbody td { padding: 13px 16px; vertical-align: middle; }
+
+.revision-row-improved  { background: #f0fdf4; }
+.revision-row-regressed { background: #fef2f2; }
+
+.revision-term-label { font-weight: 600; color: var(--text); width: 210px; }
+.revision-orig-val   { color: var(--text-muted); }
+.revision-rev-val    { color: var(--text); }
+
+.delta-cell { text-align: center; white-space: nowrap; }
+.delta-tag {
+  display: inline-block; padding: 4px 12px; border-radius: 99px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.2px;
+}
+.delta-improved  { background: #dcfce7; color: #15803d; }
+.delta-regressed { background: #fee2e2; color: #dc2626; }
+.delta-unchanged { background: #f1f5f9; color: #64748b; }
+.delta-changed   { background: #fef9c3; color: #92400e; }
+
+/* Concerns grid */
+.revision-concerns-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;
+}
+.revision-concerns-card {
+  border-radius: var(--radius); padding: 16px 18px;
+  border: 1.5px solid; font-size: 13.5px;
+}
+.revision-concerns-resolved { background: #f0fdf4; border-color: #86efac; }
+.revision-concerns-remaining { background: var(--warning-bg); border-color: var(--warning-border); }
+.revision-concerns-new       { background: var(--danger-bg); border-color: var(--danger-border); }
+
+.revision-concerns-card-header {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 13px; margin-bottom: 10px;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.revision-concerns-resolved  .revision-concerns-card-header { color: #15803d; }
+.revision-concerns-remaining .revision-concerns-card-header { color: var(--warning); }
+.revision-concerns-new       .revision-concerns-card-header { color: var(--danger); }
+
+.revision-concerns-icon { font-size: 15px; }
+.revision-concerns-card ul { padding-left: 16px; line-height: 1.65; }
+.revision-concerns-card li { margin-bottom: 4px; }
+.revision-no-concerns { color: var(--text-muted); font-style: italic; font-size: 14px; }
+
+/* Footer note */
+.revision-footer-note {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--text-muted);
+  padding: 14px 0; border-top: 1px solid var(--border); margin-top: 8px;
+}
+.revision-footer-sep { font-weight: 700; color: var(--text-muted); }
+
+.revision-grade-pill {
+  display: inline-block; padding: 2px 10px; border-radius: 99px; border: 1.5px solid;
+  font-weight: 800; font-size: 13px; margin: 0 3px;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 680px) {
   .step-text { display: none; }
