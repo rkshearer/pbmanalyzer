@@ -101,12 +101,16 @@ export interface LibraryStats {
   contracts_count: number
   grade_distribution: Record<string, number>
   avg_brand_retail: string
+  avg_brand_mail: string
   avg_generic_retail: string
+  avg_generic_mail: string
   avg_specialty: string
   avg_dispensing_fee: string
   avg_admin_fee: string
   avg_rebate_guarantee: string
   top_concerns: [string, number][]
+  risk_distribution: { high: number; medium: number; low: number }
+  top_risk_areas: [string, number][]
 }
 
 export interface StoredAnalysisResponse {

@@ -8,6 +8,12 @@ const GRADE_COLORS: Record<string, string> = {
 
 const GRADE_ORDER = ['A', 'B', 'C', 'D', 'F']
 
+const RISK_CONFIG = [
+  { key: 'high',   label: 'High',   className: 'history-risk-high' },
+  { key: 'medium', label: 'Medium', className: 'history-risk-medium' },
+  { key: 'low',    label: 'Low',    className: 'history-risk-low' },
+] as const
+
 export default function History() {
   const [stats, setStats] = useState<LibraryStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -50,20 +56,26 @@ export default function History() {
     )
   }
 
+  const totalRisk = (stats.risk_distribution?.high ?? 0)
+    + (stats.risk_distribution?.medium ?? 0)
+    + (stats.risk_distribution?.low ?? 0)
+
   return (
     <div className="history-page">
-      <div className="history-header">
-        <div>
-          <h2 className="history-title">Contract Library Summary</h2>
-          <p className="history-subtitle">
-            Aggregate insights across {stats.contracts_count} contract{stats.contracts_count !== 1 ? 's' : ''} analyzed
-          </p>
+
+      {/* Hero banner */}
+      <div className="history-hero">
+        <div className="history-hero-count">{stats.contracts_count}</div>
+        <div className="history-hero-text">
+          <div className="history-hero-label">Contracts Analyzed</div>
+          <div className="history-hero-sub">Aggregate insights across your contract library</div>
         </div>
       </div>
 
+      {/* Row 1: Grade Distribution + Risk Profile */}
+      <div className="history-section-label">Performance Overview</div>
       <div className="history-stats-grid">
 
-        {/* Grade distribution */}
         <div className="history-stat-card">
           <div className="history-stat-label">Grade Distribution</div>
           <div className="history-grade-dist">
@@ -77,6 +89,7 @@ export default function History() {
                   <div className="history-grade-bar-wrap">
                     <div className="history-grade-bar" style={{ width: `${pct}%`, background: color + '60' }} />
                   </div>
+                  <span className="history-grade-pct">{pct > 0 ? `${pct}%` : '—'}</span>
                   <span className="history-grade-count">{count}</span>
                 </div>
               )
@@ -84,7 +97,34 @@ export default function History() {
           </div>
         </div>
 
-        {/* AWP discounts */}
+        <div className="history-stat-card">
+          <div className="history-stat-label">Risk Profile</div>
+          <div className="history-risk-dist">
+            {RISK_CONFIG.map(({ key, label, className }) => {
+              const count = stats.risk_distribution?.[key] ?? 0
+              const pct = totalRisk > 0 ? Math.round((count / totalRisk) * 100) : 0
+              return (
+                <div key={key} className="history-risk-row">
+                  <span className={`history-risk-badge ${className}`}>{label}</span>
+                  <div className="history-grade-bar-wrap">
+                    <div className={`history-grade-bar history-risk-bar-${key}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="history-grade-count">{count}</span>
+                </div>
+              )
+            })}
+            <div className="history-risk-total">
+              {totalRisk} risk items across {stats.contracts_count} contract{stats.contracts_count !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Row 2: AWP Discounts + Rebates & Fees */}
+      <div className="history-section-label">Pricing Benchmarks</div>
+      <div className="history-stats-grid">
+
         <div className="history-stat-card">
           <div className="history-stat-label">Avg AWP Discounts</div>
           <div className="history-pricing-list">
@@ -93,8 +133,16 @@ export default function History() {
               <span className="history-pricing-val">{stats.avg_brand_retail}</span>
             </div>
             <div className="history-pricing-row">
+              <span className="history-pricing-term">Brand Mail</span>
+              <span className="history-pricing-val">{stats.avg_brand_mail ?? 'N/A'}</span>
+            </div>
+            <div className="history-pricing-row">
               <span className="history-pricing-term">Generic Retail</span>
               <span className="history-pricing-val">{stats.avg_generic_retail}</span>
+            </div>
+            <div className="history-pricing-row">
+              <span className="history-pricing-term">Generic Mail</span>
+              <span className="history-pricing-val">{stats.avg_generic_mail ?? 'N/A'}</span>
             </div>
             <div className="history-pricing-row">
               <span className="history-pricing-term">Specialty</span>
@@ -103,7 +151,6 @@ export default function History() {
           </div>
         </div>
 
-        {/* Rebates & fees */}
         <div className="history-stat-card">
           <div className="history-stat-label">Avg Rebates &amp; Fees</div>
           <div className="history-pricing-list">
@@ -122,7 +169,12 @@ export default function History() {
           </div>
         </div>
 
-        {/* Most common concerns */}
+      </div>
+
+      {/* Row 3: Top Concerns + Top High-Risk Areas */}
+      <div className="history-section-label">Key Findings</div>
+      <div className="history-stats-grid">
+
         <div className="history-stat-card">
           <div className="history-stat-label">Most Common Concerns</div>
           <div className="history-concern-list">
@@ -137,7 +189,22 @@ export default function History() {
           </div>
         </div>
 
+        <div className="history-stat-card">
+          <div className="history-stat-label">Top High-Risk Areas</div>
+          <div className="history-concern-list">
+            {(stats.top_risk_areas ?? []).length > 0
+              ? stats.top_risk_areas.map(([area, count], i) => (
+                  <div key={i} className="history-concern-stat-row">
+                    <span className="history-concern-chip history-concern-chip--risk">{area}</span>
+                    <span className="history-concern-freq">{count}×</span>
+                  </div>
+                ))
+              : <span className="history-unknown">No risk area data yet</span>}
+          </div>
+        </div>
+
       </div>
+
     </div>
   )
 }

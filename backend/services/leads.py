@@ -279,6 +279,9 @@ def get_library_benchmarks() -> dict:
             "SELECT overall_grade, brand_retail, generic_retail, specialty, "
             "retail_dispensing_fee, admin_fees, rebate_guarantee, key_concerns FROM contracts"
         ).fetchall()
+        json_rows = conn.execute(
+            "SELECT analysis_json FROM contracts WHERE analysis_json IS NOT NULL"
+        ).fetchall()
 
     count = len(rows)
     if count == 0:
@@ -311,6 +314,29 @@ def get_library_benchmarks() -> dict:
         except Exception:
             pass
 
+    # Parse analysis_json for risk distribution and mail AWP discounts
+    risk_counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
+    risk_area_counts: dict[str, int] = {}
+    brand_mails: list[str] = []
+    generic_mails: list[str] = []
+
+    for row in json_rows:
+        try:
+            data = json.loads(row["analysis_json"])
+        except Exception:
+            continue
+        for item in data.get("cost_risk_areas", []):
+            level = item.get("risk_level", "").lower()
+            if level in risk_counts:
+                risk_counts[level] += 1
+            if level == "high":
+                area = item.get("area", "")
+                if area:
+                    risk_area_counts[area] = risk_area_counts.get(area, 0) + 1
+        pt = data.get("pricing_terms", {})
+        brand_mails.append(pt.get("brand_mail_awp_discount", "") or "")
+        generic_mails.append(pt.get("generic_mail_awp_discount", "") or "")
+
     def _avg_awp(strings: list[str]) -> str:
         vals = [_parse_pct(s) for s in strings]
         vals = [v for v in vals if v is not None]
@@ -327,6 +353,7 @@ def get_library_benchmarks() -> dict:
         return f"${avg:.2f}{suffix}"
 
     top_concerns = sorted(concern_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_risk_areas = sorted(risk_area_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
     return {
         "contracts_count": count,
@@ -335,10 +362,14 @@ def get_library_benchmarks() -> dict:
         "avg_brand_retail": _avg_awp(brand_retails),
         "avg_generic_retail": _avg_awp(generic_retails),
         "avg_specialty": _avg_awp(specialties),
+        "avg_brand_mail": _avg_awp(brand_mails),
+        "avg_generic_mail": _avg_awp(generic_mails),
         "avg_dispensing_fee": _avg_dollar(dispensing_fees, " per claim"),
         "avg_admin_fee": _avg_dollar(admin_fees_list, " PEPM"),
         "avg_rebate_guarantee": _avg_dollar(rebate_guarantees, " PMPY"),
         "top_concerns": top_concerns,
+        "risk_distribution": risk_counts,
+        "top_risk_areas": top_risk_areas,
     }
 
 

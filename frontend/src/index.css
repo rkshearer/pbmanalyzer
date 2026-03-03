@@ -512,6 +512,26 @@ body {
 .history-title  { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
 .history-subtitle { font-size: 13.5px; color: var(--text-muted); margin-top: 2px; }
 
+.history-hero {
+  display: flex; align-items: center; gap: 20px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  border-radius: var(--radius); padding: 28px 32px;
+  margin-bottom: 28px; color: white;
+  box-shadow: var(--shadow);
+}
+.history-hero-count {
+  font-size: 56px; font-weight: 900; line-height: 1;
+  letter-spacing: -2px; color: white; flex-shrink: 0;
+}
+.history-hero-label { font-size: 18px; font-weight: 700; color: white; }
+.history-hero-sub   { font-size: 13px; color: rgba(255,255,255,0.72); margin-top: 3px; }
+
+.history-section-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--text-muted);
+  margin-bottom: 10px; padding-left: 2px;
+}
+
 .history-table-wrap { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--shadow-sm); }
 .history-table {
   width: 100%; border-collapse: collapse;
@@ -564,16 +584,21 @@ body {
 
 .history-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-bottom: 28px;
 }
 .history-stat-card {
-  background: var(--surface);
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: 20px 22px;
   box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.history-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
 }
 .history-stat-label {
   font-size: 11px;
@@ -583,7 +608,7 @@ body {
   color: var(--text-muted);
   margin-bottom: 14px;
 }
-.history-grade-dist { display: flex; flex-direction: column; gap: 7px; }
+.history-grade-dist { display: flex; flex-direction: column; gap: 8px; }
 .history-grade-row  { display: flex; align-items: center; gap: 8px; }
 .history-grade-letter {
   font-size: 11px; font-weight: 700;
@@ -591,10 +616,27 @@ body {
   min-width: 22px; text-align: center;
 }
 .history-grade-bar-wrap {
-  flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+  flex: 1; height: 16px; background: var(--border); border-radius: 6px; overflow: hidden;
 }
-.history-grade-bar  { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
-.history-grade-count { font-size: 12px; color: var(--text-muted); min-width: 18px; text-align: right; }
+.history-grade-bar  { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+.history-grade-pct  { font-size: 11px; color: var(--text-muted); min-width: 30px; text-align: right; }
+.history-grade-count { font-size: 12px; font-weight: 600; color: var(--text); min-width: 18px; text-align: right; }
+
+/* Risk Profile card */
+.history-risk-dist  { display: flex; flex-direction: column; gap: 10px; }
+.history-risk-row   { display: flex; align-items: center; gap: 8px; }
+.history-risk-badge {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 5px; border: 1px solid;
+  min-width: 54px; text-align: center;
+}
+.history-risk-high   { color: #991b1b; background: #fef2f2; border-color: #fca5a5; }
+.history-risk-medium { color: #92400e; background: #fffbeb; border-color: #fcd34d; }
+.history-risk-low    { color: #166534; background: #f0fdf4; border-color: #86efac; }
+.history-risk-bar-high   { background: #ef4444; }
+.history-risk-bar-medium { background: #f59e0b; }
+.history-risk-bar-low    { background: #22c55e; }
+.history-risk-total { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
 .history-pricing-list { display: flex; flex-direction: column; gap: 10px; }
 .history-pricing-row  { display: flex; justify-content: space-between; align-items: baseline; }
@@ -604,6 +646,10 @@ body {
 .history-concern-list     { display: flex; flex-direction: column; gap: 8px; }
 .history-concern-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .history-concern-freq     { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.history-concern-chip--risk {
+  background: #fef2f2; color: #7f1d1d;
+  border-color: #fca5a5;
+}
 
 /* ── Compare View ────────────────────────────────────────────────────────── */
 .compare-view { animation: fadeInUp 0.28s ease forwards; }
