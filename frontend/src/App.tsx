@@ -1,4 +1,4 @@
-import { useState, Fragment } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import FileUpload from './components/FileUpload'
 import AnalysisProgress from './components/AnalysisProgress'
 import ContactForm from './components/ContactForm'
@@ -7,8 +7,10 @@ import KnowledgeStatus from './components/KnowledgeStatus'
 import CompareView from './components/CompareView'
 import RevisionFlow from './components/RevisionFlow'
 import History from './pages/History'
+import Login from './pages/Login'
 import BrokerSettings from './components/BrokerSettings'
-import type { AnalysisReport } from './types'
+import { authMe, clearStoredToken, getStoredToken } from './api'
+import type { AnalysisReport, AuthUser } from './types'
 
 type Step = 1 | 2 | 3 | 4
 type Page = 'main' | 'history' | 'compare' | 'revision'
@@ -21,6 +23,8 @@ const STEP_LABELS: Record<number, string> = {
 }
 
 export default function App() {
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const [page, setPage] = useState<Page>('main')
   const [step, setStep] = useState<Step>(1)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -28,6 +32,45 @@ export default function App() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [compareSessionId, setCompareSessionId] = useState<string>('')
   const [showBrokerSettings, setShowBrokerSettings] = useState(false)
+
+  // Check for existing token on mount
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token) {
+      setAuthLoading(false)
+      return
+    }
+    authMe()
+      .then((user) => setAuthUser(user))
+      .catch(() => clearStoredToken())
+      .finally(() => setAuthLoading(false))
+  }, [])
+
+  // Listen for 401 logout events from Axios interceptor
+  useEffect(() => {
+    const handleLogout = () => setAuthUser(null)
+    window.addEventListener('auth:logout', handleLogout)
+    return () => window.removeEventListener('auth:logout', handleLogout)
+  }, [])
+
+  const handleSignOut = () => {
+    clearStoredToken()
+    setAuthUser(null)
+  }
+
+  if (authLoading) {
+    return (
+      <div className="login-page">
+        <div className="login-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
+          <span className="btn-spinner" style={{ width: 32, height: 32 }} />
+        </div>
+      </div>
+    )
+  }
+
+  if (!authUser) {
+    return <Login onLogin={(user) => setAuthUser(user)} />
+  }
 
   const handleCompare = (sid: string) => {
     setCompareSessionId(sid)
@@ -80,6 +123,8 @@ export default function App() {
                   ⚙ Settings
                 </button>
               </nav>
+              <span className="header-user-name">{authUser.first_name}</span>
+              <button className="header-logout-btn" onClick={handleSignOut}>Sign Out</button>
               <KnowledgeStatus />
             </div>
           </div>

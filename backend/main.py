@@ -11,12 +11,24 @@ from typing import Optional
 
 import anthropic as _anthropic
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from services.analyzer import analyze_contract_background
+from services.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserOut,
+    authenticate_user,
+    create_access_token,
+    create_user,
+    decode_access_token,
+    get_user_by_id,
+)
 from services.document import extract_text
 from services.knowledge import (
     get_knowledge_status,
@@ -71,6 +83,55 @@ app.add_middleware(
 )
 
 
+# ── Auth Dependency ───────────────────────────────────────────────────────────
+
+_bearer = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+) -> UserOut:
+    """Extract and validate the JWT from the Authorization header."""
+    user_id = decode_access_token(credentials.credentials)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    user = get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found.")
+    return user
+
+
+# ── Auth Endpoints ────────────────────────────────────────────────────────────
+
+
+@app.post("/api/auth/register", response_model=TokenResponse)
+async def register(req: RegisterRequest):
+    if not req.email or not req.password:
+        raise HTTPException(status_code=400, detail="Email and password are required.")
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+    try:
+        user = create_user(req.email, req.password, req.first_name, req.last_name)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    token = create_access_token(user.id)
+    return TokenResponse(token=token, user=user)
+
+
+@app.post("/api/auth/login", response_model=TokenResponse)
+async def login(req: LoginRequest):
+    user = authenticate_user(req.email, req.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    token = create_access_token(user.id)
+    return TokenResponse(token=token, user=user)
+
+
+@app.get("/api/auth/me", response_model=UserOut)
+async def get_me(user: UserOut = Depends(get_current_user)):
+    return user
+
+
 # ── Analysis Endpoints ────────────────────────────────────────────────────────
 
 async def _run_analysis(session_id: str, text: str):
@@ -82,7 +143,7 @@ async def _run_analysis(session_id: str, text: str):
 
 
 @app.post("/api/analyze")
-async def analyze_contract(file: UploadFile = File(...)):
+async def analyze_contract(file: UploadFile = File(...), _user: UserOut = Depends(get_current_user)):
     filename = file.filename or ""
     if not filename.lower().endswith((".pdf", ".docx", ".doc")):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported.")
@@ -108,7 +169,7 @@ async def analyze_contract(file: UploadFile = File(...)):
 
 
 @app.get("/api/status/{session_id}")
-async def get_status(session_id: str):
+async def get_status(session_id: str, _user: UserOut = Depends(get_current_user)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found.")
 
@@ -131,7 +192,7 @@ class ContactFormData(BaseModel):
 
 
 @app.post("/api/report/{session_id}")
-async def submit_contact_and_get_report(session_id: str, contact_data: ContactFormData):
+async def submit_contact_and_get_report(session_id: str, contact_data: ContactFormData, _user: UserOut = Depends(get_current_user)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found.")
 
@@ -170,7 +231,7 @@ async def submit_contact_and_get_report(session_id: str, contact_data: ContactFo
 
 
 @app.get("/api/download/{session_id}")
-async def download_report(session_id: str):
+async def download_report(session_id: str, _user: UserOut = Depends(get_current_user)):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found.")
 
@@ -199,7 +260,7 @@ async def download_report(session_id: str):
 # ── Leads Endpoints ───────────────────────────────────────────────────────────
 
 @app.get("/api/leads/export")
-async def export_leads(key: str = Query(..., description="Export secret key")):
+async def export_leads(key: str = Query(..., description="Export secret key"), _user: UserOut = Depends(get_current_user)):
     """
     Download all leads as a CSV file.
     Protected by LEADS_EXPORT_KEY in .env — pass it as ?key=YOUR_KEY.
@@ -222,7 +283,7 @@ async def export_leads(key: str = Query(..., description="Export secret key")):
 # ── Negotiation Letter ────────────────────────────────────────────────────────
 
 @app.post("/api/negotiate/{session_id}")
-async def generate_negotiation_letter_endpoint(session_id: str):
+async def generate_negotiation_letter_endpoint(session_id: str, _user: UserOut = Depends(get_current_user)):
     """Generate a negotiation letter DOCX based on the analysis for this session."""
     from services.negotiate import generate_negotiation_letter
 
@@ -251,19 +312,20 @@ async def generate_negotiation_letter_endpoint(session_id: str):
 async def get_library(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    _user: UserOut = Depends(get_current_user),
 ):
     """Paginated list of all analyzed contracts, newest first."""
     return get_contract_list(page=page, limit=limit)
 
 
 @app.get("/api/library/stats")
-async def get_library_stats():
+async def get_library_stats(_user: UserOut = Depends(get_current_user)):
     """Aggregate statistics across all contracts in the library."""
     return get_library_benchmarks()
 
 
 @app.post("/api/admin/scrub-concerns")
-async def admin_scrub_concerns(key: str = Query(...)):
+async def admin_scrub_concerns(key: str = Query(...), _user: UserOut = Depends(get_current_user)):
     """One-time migration: rewrite stored key_concerns to remove party/employer names."""
     if key != os.getenv("LEADS_EXPORT_KEY"):
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -271,7 +333,7 @@ async def admin_scrub_concerns(key: str = Query(...)):
 
 
 @app.get("/api/session/{session_id}/analysis")
-async def get_stored_analysis(session_id: str):
+async def get_stored_analysis(session_id: str, _user: UserOut = Depends(get_current_user)):
     """Re-hydrate a past analysis from the contract library."""
     # Check live session first
     if session_id in sessions and sessions[session_id].status == SessionStatus.COMPLETE:
@@ -324,6 +386,7 @@ async def get_stored_analysis(session_id: str):
 async def compare_contracts(
     a: str = Query(..., description="Session ID of contract A"),
     b: str = Query(..., description="Session ID of contract B"),
+    _user: UserOut = Depends(get_current_user),
 ):
     """Return side-by-side comparison data for two contracts from the library."""
     row_a = get_contract_by_session(a)
@@ -368,7 +431,7 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/api/chat/{session_id}")
-async def chat_with_contract(session_id: str, request: ChatRequest):
+async def chat_with_contract(session_id: str, request: ChatRequest, _user: UserOut = Depends(get_current_user)):
     """Stream an answer to a broker question about the contract."""
     row = get_contract_by_session(session_id)
     if not row:
@@ -428,7 +491,7 @@ async def chat_with_contract(session_id: str, request: ChatRequest):
 # ── RFP Export ────────────────────────────────────────────────────────────────
 
 @app.post("/api/rfp/{session_id}")
-async def generate_rfp_export_endpoint(session_id: str):
+async def generate_rfp_export_endpoint(session_id: str, _user: UserOut = Depends(get_current_user)):
     """Generate a prioritized RFP question bank XLSX for the given analysis."""
     from services.rfp import generate_rfp_export
 
@@ -452,12 +515,12 @@ async def generate_rfp_export_endpoint(session_id: str):
 # ── Knowledge Base Endpoints ──────────────────────────────────────────────────
 
 @app.get("/api/knowledge/status")
-async def knowledge_status():
+async def knowledge_status(_user: UserOut = Depends(get_current_user)):
     return get_knowledge_status()
 
 
 @app.post("/api/knowledge/update")
-async def trigger_knowledge_update():
+async def trigger_knowledge_update(_user: UserOut = Depends(get_current_user)):
     """Manually trigger a knowledge base update from public sources."""
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, update_knowledge_base)
@@ -474,7 +537,7 @@ class BrokerProfileData(BaseModel):
 
 
 @app.get("/api/broker")
-async def get_broker():
+async def get_broker(_user: UserOut = Depends(get_current_user)):
     """Return current broker profile for the settings UI."""
     profile = get_broker_profile()
     if not profile:
@@ -484,7 +547,7 @@ async def get_broker():
 
 
 @app.post("/api/broker")
-async def save_broker(data: BrokerProfileData):
+async def save_broker(data: BrokerProfileData, _user: UserOut = Depends(get_current_user)):
     """Save broker profile (text fields only; logo uploaded separately)."""
     current = get_broker_profile()
     logo_path = current.get("logo_path") if current else None
@@ -493,7 +556,7 @@ async def save_broker(data: BrokerProfileData):
 
 
 @app.post("/api/broker/logo")
-async def upload_broker_logo(file: UploadFile = File(...)):
+async def upload_broker_logo(file: UploadFile = File(...), _user: UserOut = Depends(get_current_user)):
     """Upload and store the broker logo. Accepted: PNG, JPG, WEBP."""
     fname = file.filename or "logo.png"
     ext = os.path.splitext(fname)[1].lower()
@@ -516,7 +579,7 @@ async def upload_broker_logo(file: UploadFile = File(...)):
 
 
 @app.get("/api/broker/logo")
-async def get_broker_logo():
+async def get_broker_logo(_user: UserOut = Depends(get_current_user)):
     """Serve the stored broker logo file."""
     profile = get_broker_profile()
     if not profile or not profile.get("logo_path") or not os.path.exists(profile["logo_path"]):
@@ -542,6 +605,7 @@ async def health():
 async def compare_revisions(
     original: str = Query(..., description="Session ID of the original contract"),
     revised: str = Query(..., description="Session ID of the revised contract"),
+    _user: UserOut = Depends(get_current_user),
 ):
     """Return a before/after delta comparison between the original and renegotiated contract."""
     orig_analysis = _get_analysis(original)

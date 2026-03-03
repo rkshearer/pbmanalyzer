@@ -1,12 +1,73 @@
 import axios from 'axios'
-import type { AnalysisStatus, AnalysisReport, KnowledgeStatus } from './types'
+import type { AnalysisStatus, AnalysisReport, KnowledgeStatus, AuthUser, AuthResponse } from './types'
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
+
+// ── Token helpers ────────────────────────────────────────────────────────────
+
+const TOKEN_KEY = 'pbm_auth_token'
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setStoredToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+// ── Axios instance + interceptors ────────────────────────────────────────────
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 300000,
 })
+
+// Attach Bearer token to every request
+api.interceptors.request.use((config) => {
+  const token = getStoredToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// On 401 response, clear token and dispatch logout event
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      clearStoredToken()
+      window.dispatchEvent(new Event('auth:logout'))
+    }
+    return Promise.reject(error)
+  },
+)
+
+// ── Auth API functions ───────────────────────────────────────────────────────
+
+export async function authRegister(
+  email: string,
+  password: string,
+  first_name: string,
+  last_name: string,
+): Promise<AuthResponse> {
+  const response = await api.post('/api/auth/register', { email, password, first_name, last_name })
+  return response.data
+}
+
+export async function authLogin(email: string, password: string): Promise<AuthResponse> {
+  const response = await api.post('/api/auth/login', { email, password })
+  return response.data
+}
+
+export async function authMe(): Promise<AuthUser> {
+  const response = await api.get('/api/auth/me')
+  return response.data
+}
 
 export async function uploadContract(file: File): Promise<{ session_id: string }> {
   const formData = new FormData()
@@ -91,8 +152,12 @@ export async function getRevisionComparison(
 
 /** Download the negotiation letter DOCX and trigger browser save. */
 export async function downloadNegotiationLetter(sessionId: string): Promise<void> {
+  const headers: Record<string, string> = {}
+  const token = getStoredToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
   const response = await fetch(`${API_BASE_URL}/api/negotiate/${sessionId}`, {
     method: 'POST',
+    headers,
   })
   if (!response.ok) {
     const text = await response.text()
@@ -139,8 +204,12 @@ export async function uploadBrokerLogo(file: File): Promise<{ logo_url: string }
 
 /** Download the RFP question bank XLSX and trigger browser save. */
 export async function downloadRfpExport(sessionId: string): Promise<void> {
+  const headers: Record<string, string> = {}
+  const token = getStoredToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
   const response = await fetch(`${API_BASE_URL}/api/rfp/${sessionId}`, {
     method: 'POST',
+    headers,
   })
   if (!response.ok) {
     const text = await response.text()

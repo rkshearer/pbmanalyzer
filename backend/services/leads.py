@@ -78,6 +78,10 @@ def init_db():
         """)
         conn.commit()
 
+    # Initialize auth users table
+    from .auth import init_users_table
+    init_users_table()
+
 
 # ── Save a lead ───────────────────────────────────────────────────────────────
 

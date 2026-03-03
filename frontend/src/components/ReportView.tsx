@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { AnalysisReport, CostRiskItem, LibraryComparison, ChatMessage } from '../types'
-import { API_BASE_URL, downloadNegotiationLetter, downloadRfpExport } from '../api'
+import { API_BASE_URL, downloadNegotiationLetter, downloadRfpExport, getStoredToken } from '../api'
 
 interface Props {
   analysis: AnalysisReport
@@ -151,9 +151,12 @@ function ChatPanel({ sessionId }: { sessionId: string }) {
 
     let fullText = ''
     try {
+      const fetchHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+      const token = getStoredToken()
+      if (token) fetchHeaders['Authorization'] = `Bearer ${token}`
       const response = await fetch(`${API_BASE_URL}/api/chat/${sessionId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: fetchHeaders,
         body: JSON.stringify({ question, history }),
       })
 
