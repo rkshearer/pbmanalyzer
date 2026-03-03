@@ -147,7 +147,6 @@ export default function History() {
               <th>Contract</th>
               <th>Analyzed</th>
               <th>Grade</th>
-              <th>Top Concerns</th>
             </tr>
           </thead>
           <tbody>
@@ -173,13 +172,6 @@ export default function History() {
                     >
                       {c.overall_grade}
                     </span>
-                  </td>
-                  <td className="history-concerns">
-                    {c.key_concerns.length > 0
-                      ? c.key_concerns.slice(0, 2).map((concern, i) => (
-                          <div key={i} className="history-concern-chip">{concern}</div>
-                        ))
-                      : <span className="history-unknown">—</span>}
                   </td>
                 </tr>
               )
