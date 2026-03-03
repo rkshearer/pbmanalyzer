@@ -1,10 +1,13 @@
+import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import type { AnalysisReport, CostRiskItem, LibraryComparison } from '../types'
-import { API_BASE_URL } from '../api'
+import type { AnalysisReport, CostRiskItem, LibraryComparison, ChatMessage } from '../types'
+import { API_BASE_URL, downloadNegotiationLetter, downloadRfpExport } from '../api'
 
 interface Props {
   analysis: AnalysisReport
-  downloadUrl: string
+  downloadUrl: string | null
+  sessionId: string
+  onCompare: (sessionId: string) => void
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -15,11 +18,7 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 const GRADE_COLORS: Record<string, string> = {
-  A: '#2e7d32',
-  B: '#1565c0',
-  C: '#f57c00',
-  D: '#e64a19',
-  F: '#c62828',
+  A: '#2e7d32', B: '#1565c0', C: '#f57c00', D: '#e64a19', F: '#c62828',
 }
 
 const GRADE_LABELS: Record<string, string> = {
@@ -123,16 +122,204 @@ function LibraryComparisonCard({ lc }: { lc: LibraryComparison }) {
   )
 }
 
-export default function ReportView({ analysis, downloadUrl }: Props) {
+// ── Chat Panel ────────────────────────────────────────────────────────────────
+
+function ChatPanel({ sessionId }: { sessionId: string }) {
+  const [history, setHistory] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [streaming, setStreaming] = useState(false)
+  const [streamingText, setStreamingText] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [history, streamingText])
+
+  const sendMessage = async () => {
+    const question = input.trim()
+    if (!question || streaming) return
+
+    setInput('')
+    setError(null)
+    setStreaming(true)
+    setStreamingText('')
+
+    const newHistory: ChatMessage[] = [...history, { role: 'user', content: question }]
+    setHistory(newHistory)
+
+    let fullText = ''
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chat/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, history }),
+      })
+
+      if (!response.ok) throw new Error('Request failed')
+      if (!response.body) throw new Error('No response body')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') break
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.error) throw new Error(parsed.error)
+            if (parsed.text) {
+              fullText += parsed.text
+              setStreamingText(fullText)
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) continue
+            throw parseErr
+          }
+        }
+      }
+
+      setHistory([...newHistory, { role: 'assistant', content: fullText }])
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      setError(`Chat error: ${msg}`)
+      setHistory(newHistory) // keep user message, no assistant reply
+    } finally {
+      setStreaming(false)
+      setStreamingText('')
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
+  return (
+    <div className="chat-panel">
+      <div className="chat-header">
+        <span className="chat-icon">💬</span>
+        <div>
+          <h3 className="chat-title">Ask About This Contract</h3>
+          <p className="chat-subtitle">
+            Ask specific questions about terms, clauses, or obligations in this contract.
+          </p>
+        </div>
+      </div>
+
+      <div className="chat-messages">
+        {history.length === 0 && !streaming && (
+          <div className="chat-empty">
+            <p>Examples: "Does this contract have audit rights?" · "What is the termination penalty?" · "Are there any automatic renewal provisions?"</p>
+          </div>
+        )}
+
+        {history.map((msg, i) => (
+          <div key={i} className={`chat-message chat-message-${msg.role}`}>
+            <div className="chat-bubble">
+              {msg.content.split('\n').map((line, j) =>
+                line ? <p key={j}>{line}</p> : <br key={j} />
+              )}
+            </div>
+          </div>
+        ))}
+
+        {streaming && streamingText && (
+          <div className="chat-message chat-message-assistant">
+            <div className="chat-bubble chat-bubble-streaming">
+              {streamingText.split('\n').map((line, j) =>
+                line ? <p key={j}>{line}</p> : <br key={j} />
+              )}
+              <span className="chat-cursor" />
+            </div>
+          </div>
+        )}
+
+        {streaming && !streamingText && (
+          <div className="chat-message chat-message-assistant">
+            <div className="chat-bubble chat-bubble-thinking">
+              <span className="chat-dots">
+                <span /><span /><span />
+              </span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="chat-error">{error}</div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="chat-input-row">
+        <textarea
+          className="chat-input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask about a specific clause, term, or provision…"
+          rows={2}
+          disabled={streaming}
+        />
+        <button
+          className="btn btn-primary chat-send"
+          onClick={sendMessage}
+          disabled={streaming || !input.trim()}
+        >
+          {streaming ? '…' : 'Send'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
+export default function ReportView({ analysis, downloadUrl, sessionId, onCompare }: Props) {
   const gradeColor = GRADE_COLORS[analysis.overall_grade] ?? '#1e3a5f'
+  const [letterLoading, setLetterLoading] = useState(false)
+  const [rfpLoading, setRfpLoading] = useState(false)
 
   const handleDownload = () => {
+    if (!downloadUrl) return
     const a = document.createElement('a')
     a.href = `${API_BASE_URL}${downloadUrl}`
     a.download = 'PBM_Analysis_Report.pdf'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
+  }
+
+  const handleNegotiationLetter = async () => {
+    setLetterLoading(true)
+    try {
+      await downloadNegotiationLetter(sessionId)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      alert(`Could not generate letter: ${msg}`)
+    } finally {
+      setLetterLoading(false)
+    }
+  }
+
+  const handleRfpExport = async () => {
+    setRfpLoading(true)
+    try {
+      await downloadRfpExport(sessionId)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      alert(`Could not generate RFP export: ${msg}`)
+    } finally {
+      setRfpLoading(false)
+    }
   }
 
   const co = analysis.contract_overview
@@ -149,9 +336,36 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
           <strong>✓ Analysis complete.</strong> Review the full report below or download the
           formatted PDF.
         </div>
-        <button className="btn btn-download" onClick={handleDownload}>
-          ↓ Download PDF Report
-        </button>
+        <div className="download-bar-actions">
+          {downloadUrl && (
+            <button className="btn btn-download" onClick={handleDownload}>
+              ↓ Download PDF
+            </button>
+          )}
+          <button
+            className="btn btn-action"
+            onClick={handleNegotiationLetter}
+            disabled={letterLoading}
+            title="Generate a negotiation letter to send to the PBM"
+          >
+            {letterLoading ? 'Generating…' : '✉ Negotiation Letter'}
+          </button>
+          <button
+            className="btn btn-action"
+            onClick={handleRfpExport}
+            disabled={rfpLoading}
+            title="Export a prioritized RFP question bank"
+          >
+            {rfpLoading ? 'Generating…' : '📋 Export RFP Questions'}
+          </button>
+          <button
+            className="btn btn-action"
+            onClick={() => onCompare(sessionId)}
+            title="Compare with another contract"
+          >
+            ⇄ Compare
+          </button>
+        </div>
       </div>
 
       {/* Overall Grade */}
@@ -277,32 +491,15 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
           <tbody>
             {(
               [
-                [
-                  'Brand Retail',
-                  mc.brand_retail_benchmark,
-                  mc.brand_retail_contract,
-                  mc.brand_retail_assessment,
-                ],
-                [
-                  'Generic Retail',
-                  mc.generic_retail_benchmark,
-                  mc.generic_retail_contract,
-                  mc.generic_retail_assessment,
-                ],
-                [
-                  'Specialty',
-                  mc.specialty_benchmark,
-                  mc.specialty_contract,
-                  mc.specialty_assessment,
-                ],
+                ['Brand Retail',   mc.brand_retail_benchmark,   mc.brand_retail_contract,   mc.brand_retail_assessment],
+                ['Generic Retail', mc.generic_retail_benchmark, mc.generic_retail_contract, mc.generic_retail_assessment],
+                ['Specialty',      mc.specialty_benchmark,      mc.specialty_contract,      mc.specialty_assessment],
               ] as [string, string, string, string][]
             ).map(([category, benchmark, contract, assessment]) => (
               <tr key={category}>
                 <td>{category}</td>
                 <td>{benchmark}</td>
-                <td>
-                  <strong>{contract}</strong>
-                </td>
+                <td><strong>{contract}</strong></td>
                 <td>
                   <span className={`assessment-badge ${getAssessmentClass(assessment)}`}>
                     {assessment}
@@ -348,12 +545,33 @@ export default function ReportView({ analysis, downloadUrl }: Props) {
         </ol>
       </SectionCard>
 
+      {/* Chat / Q&A */}
+      <ChatPanel sessionId={sessionId} />
+
       {/* Bottom download */}
       <div className="download-bar bottom">
         <div>Ready to share this analysis with your client?</div>
-        <button className="btn btn-download" onClick={handleDownload}>
-          ⬇ Download PDF Report
-        </button>
+        <div className="download-bar-actions">
+          {downloadUrl && (
+            <button className="btn btn-download" onClick={handleDownload}>
+              ⬇ Download PDF Report
+            </button>
+          )}
+          <button
+            className="btn btn-action"
+            onClick={handleNegotiationLetter}
+            disabled={letterLoading}
+          >
+            {letterLoading ? 'Generating…' : '✉ Negotiation Letter'}
+          </button>
+          <button
+            className="btn btn-action"
+            onClick={handleRfpExport}
+            disabled={rfpLoading}
+          >
+            {rfpLoading ? 'Generating…' : '📋 RFP Questions'}
+          </button>
+        </div>
       </div>
     </div>
   )

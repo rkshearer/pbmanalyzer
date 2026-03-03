@@ -58,6 +58,11 @@ def init_db():
                 contract_text        TEXT
             )
         """)
+        # Migration: add analysis_json column if it doesn't exist yet
+        try:
+            conn.execute("ALTER TABLE contracts ADD COLUMN analysis_json TEXT")
+        except Exception:
+            pass  # Column already exists
         conn.commit()
 
 
@@ -223,8 +228,8 @@ def save_contract(session_id: str, analysis: PBMAnalysisReport, contract_text: s
               (session_id, pbm_name, uploaded_at, overall_grade,
                brand_retail, generic_retail, specialty,
                retail_dispensing_fee, admin_fees, rebate_guarantee,
-               key_concerns, contract_text)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               key_concerns, contract_text, analysis_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session_id,
@@ -239,6 +244,7 @@ def save_contract(session_id: str, analysis: PBMAnalysisReport, contract_text: s
                 pt.rebate_guarantee,
                 json.dumps(analysis.key_concerns),
                 contract_text,
+                analysis.model_dump_json(),
             ),
         )
         conn.commit()
@@ -303,6 +309,50 @@ def count_leads() -> int:
     """Return the total number of stored leads."""
     with sqlite3.connect(DB_PATH) as conn:
         return conn.execute("SELECT COUNT(*) FROM leads").fetchone()[0]
+
+
+def get_contract_list(page: int = 1, limit: int = 20) -> dict:
+    """Return a paginated list of contracts from the library, newest first."""
+    offset = (page - 1) * limit
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        total = conn.execute("SELECT COUNT(*) FROM contracts").fetchone()[0]
+        rows = conn.execute(
+            "SELECT session_id, pbm_name, uploaded_at, overall_grade, key_concerns "
+            "FROM contracts ORDER BY uploaded_at DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        ).fetchall()
+
+    contracts = []
+    for row in rows:
+        try:
+            concerns = json.loads(row["key_concerns"] or "[]")[:2]
+        except Exception:
+            concerns = []
+        contracts.append({
+            "session_id": row["session_id"],
+            "pbm_name": row["pbm_name"],
+            "uploaded_at": row["uploaded_at"],
+            "overall_grade": row["overall_grade"],
+            "key_concerns": concerns,
+        })
+
+    return {
+        "contracts": contracts,
+        "total": total,
+        "page": page,
+        "pages": max(1, (total + limit - 1) // limit),
+    }
+
+
+def get_contract_by_session(session_id: str) -> Optional[dict]:
+    """Return the full contract row for a session_id, or None if not found."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM contracts WHERE session_id = ?", (session_id,)
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def export_leads_csv() -> str:

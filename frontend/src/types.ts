@@ -81,3 +81,49 @@ export interface KnowledgeStatus {
     updates: string[]
   }>
 }
+
+export interface ContractListItem {
+  session_id: string
+  pbm_name: string | null
+  uploaded_at: string
+  overall_grade: string
+  key_concerns: string[]
+}
+
+export interface ContractListResponse {
+  contracts: ContractListItem[]
+  total: number
+  page: number
+  pages: number
+}
+
+export interface StoredAnalysisResponse {
+  analysis: AnalysisReport
+  download_url: string | null
+  pbm_name: string | null
+  uploaded_at: string | null
+}
+
+export interface CompareContract {
+  session_id: string
+  pbm_name: string
+  uploaded_at: string
+  overall_grade: string
+  brand_retail: string
+  generic_retail: string
+  specialty: string
+  retail_dispensing_fee: string
+  admin_fees: string
+  rebate_guarantee: string
+  key_concerns: string[]
+}
+
+export interface CompareData {
+  a: CompareContract
+  b: CompareContract
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
