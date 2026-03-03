@@ -89,7 +89,7 @@ export default function History({ onOpenReport, onCompare }: Props) {
         <table className="history-table">
           <thead>
             <tr>
-              <th>PBM / Parties</th>
+              <th>Contract</th>
               <th>Analyzed</th>
               <th>Grade</th>
               <th>Top Concerns</th>
@@ -97,13 +97,14 @@ export default function History({ onOpenReport, onCompare }: Props) {
             </tr>
           </thead>
           <tbody>
-            {contracts.map((c) => {
+            {contracts.map((c, rowIndex) => {
+              const contractNumber = total - ((page - 1) * 20) - rowIndex
               const gradeColor = GRADE_COLORS[c.overall_grade] ?? '#64748b'
               const isOpening = openingId === c.session_id
               return (
                 <tr key={c.session_id}>
                   <td className="history-pbm-name">
-                    {c.pbm_name || <span className="history-unknown">Unknown PBM</span>}
+                    Contract #{contractNumber}
                   </td>
                   <td className="history-date">
                     {c.uploaded_at
