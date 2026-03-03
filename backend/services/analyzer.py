@@ -296,9 +296,9 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
 
 def _call_claude_with_fallbacks(client, system_prompt, messages, use_files_api: bool):
     """
-    Call Claude for contract analysis.
-    Attempt 1: Files API (beta) + adaptive thinking.
-    Attempt 2: Direct text + adaptive thinking.
+    Call Claude for contract analysis using streaming (required for adaptive thinking).
+    Attempt 1: Files API (beta) + adaptive thinking, streamed.
+    Attempt 2: Direct text + adaptive thinking, streamed.
     Attempt 3: Direct text without thinking (SDK version fallback).
     """
     base_kwargs = {
@@ -310,23 +310,25 @@ def _call_claude_with_fallbacks(client, system_prompt, messages, use_files_api: 
         "tool_choice": {"type": "tool", "name": "analyze_pbm_contract"},
     }
 
-    # Attempt 1: Files API (beta) + adaptive thinking
+    # Attempt 1: Files API (beta) + adaptive thinking, streamed
     if use_files_api:
         try:
-            return client.beta.messages.create(
+            with client.beta.messages.stream(
                 **base_kwargs,
                 thinking={"type": "adaptive"},
                 betas=["files-api-2025-04-14"],
-            )
+            ) as stream:
+                return stream.get_final_message()
         except Exception as e:
             print(f"[Analyzer] Files API+thinking failed ({type(e).__name__}: {e}), trying direct text")
 
-    # Attempt 2: Direct text + adaptive thinking
+    # Attempt 2: Direct text + adaptive thinking, streamed
     try:
-        return client.messages.create(
+        with client.messages.stream(
             **base_kwargs,
             thinking={"type": "adaptive"},
-        )
+        ) as stream:
+            return stream.get_final_message()
     except TypeError as e:
         # SDK too old to support thinking parameter — fall back gracefully
         print(f"[Analyzer] thinking param unsupported ({e}), retrying without thinking")
