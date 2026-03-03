@@ -263,12 +263,21 @@ def save_contract(session_id: str, analysis: PBMAnalysisReport, contract_text: s
         conn.commit()
 
 
+def _parse_dollar(s: str) -> Optional[float]:
+    """Extract the first dollar amount from a string, or None."""
+    if not s or s.lower().startswith("not"):
+        return None
+    m = re.search(r'\$\s*(\d+(?:\.\d+)?)', s)
+    return float(m.group(1)) if m else None
+
+
 def get_library_benchmarks() -> dict:
     """Return aggregate statistics from the contract library for prompt enrichment and comparison cards."""
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            "SELECT overall_grade, brand_retail, generic_retail, specialty, key_concerns FROM contracts"
+            "SELECT overall_grade, brand_retail, generic_retail, specialty, "
+            "retail_dispensing_fee, admin_fees, rebate_guarantee, key_concerns FROM contracts"
         ).fetchall()
 
     count = len(rows)
@@ -280,6 +289,9 @@ def get_library_benchmarks() -> dict:
     brand_retails: list[str] = []
     generic_retails: list[str] = []
     specialties: list[str] = []
+    dispensing_fees: list[str] = []
+    admin_fees_list: list[str] = []
+    rebate_guarantees: list[str] = []
     concern_counts: dict[str, int] = {}
 
     for row in rows:
@@ -290,18 +302,29 @@ def get_library_benchmarks() -> dict:
         brand_retails.append(row["brand_retail"] or "")
         generic_retails.append(row["generic_retail"] or "")
         specialties.append(row["specialty"] or "")
+        dispensing_fees.append(row["retail_dispensing_fee"] or "")
+        admin_fees_list.append(row["admin_fees"] or "")
+        rebate_guarantees.append(row["rebate_guarantee"] or "")
         try:
             for concern in json.loads(row["key_concerns"] or "[]"):
                 concern_counts[concern] = concern_counts.get(concern, 0) + 1
         except Exception:
             pass
 
-    def _avg_str(strings: list[str]) -> str:
+    def _avg_awp(strings: list[str]) -> str:
         vals = [_parse_pct(s) for s in strings]
         vals = [v for v in vals if v is not None]
         if not vals:
             return "N/A"
         return f"AWP-{sum(vals) / len(vals):.1f}%"
+
+    def _avg_dollar(strings: list[str], suffix: str = "") -> str:
+        vals = [_parse_dollar(s) for s in strings]
+        vals = [v for v in vals if v is not None]
+        if not vals:
+            return "N/A"
+        avg = sum(vals) / len(vals)
+        return f"${avg:.2f}{suffix}"
 
     top_concerns = sorted(concern_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
@@ -309,9 +332,12 @@ def get_library_benchmarks() -> dict:
         "contracts_count": count,
         "grade_distribution": grade_distribution,
         "grades": grades,
-        "avg_brand_retail": _avg_str(brand_retails),
-        "avg_generic_retail": _avg_str(generic_retails),
-        "avg_specialty": _avg_str(specialties),
+        "avg_brand_retail": _avg_awp(brand_retails),
+        "avg_generic_retail": _avg_awp(generic_retails),
+        "avg_specialty": _avg_awp(specialties),
+        "avg_dispensing_fee": _avg_dollar(dispensing_fees, " per claim"),
+        "avg_admin_fee": _avg_dollar(admin_fees_list, " PEPM"),
+        "avg_rebate_guarantee": _avg_dollar(rebate_guarantees, " PMPY"),
         "top_concerns": top_concerns,
     }
 

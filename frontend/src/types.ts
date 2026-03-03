@@ -103,6 +103,9 @@ export interface LibraryStats {
   avg_brand_retail: string
   avg_generic_retail: string
   avg_specialty: string
+  avg_dispensing_fee: string
+  avg_admin_fee: string
+  avg_rebate_guarantee: string
   top_concerns: [string, number][]
 }
 

@@ -105,7 +105,7 @@ export default function History() {
 
           {/* Average pricing */}
           <div className="history-stat-card">
-            <div className="history-stat-label">Average Pricing (AWP Discounts)</div>
+            <div className="history-stat-label">Avg AWP Discounts</div>
             <div className="history-pricing-list">
               <div className="history-pricing-row">
                 <span className="history-pricing-term">Brand Retail</span>
@@ -118,6 +118,25 @@ export default function History() {
               <div className="history-pricing-row">
                 <span className="history-pricing-term">Specialty</span>
                 <span className="history-pricing-val">{stats.avg_specialty}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Rebates & fees */}
+          <div className="history-stat-card">
+            <div className="history-stat-label">Avg Rebates &amp; Fees</div>
+            <div className="history-pricing-list">
+              <div className="history-pricing-row">
+                <span className="history-pricing-term">Rebate Guarantee</span>
+                <span className="history-pricing-val">{stats.avg_rebate_guarantee}</span>
+              </div>
+              <div className="history-pricing-row">
+                <span className="history-pricing-term">Dispensing Fee</span>
+                <span className="history-pricing-val">{stats.avg_dispensing_fee}</span>
+              </div>
+              <div className="history-pricing-row">
+                <span className="history-pricing-term">Admin Fee</span>
+                <span className="history-pricing-val">{stats.avg_admin_fee}</span>
               </div>
             </div>
           </div>
