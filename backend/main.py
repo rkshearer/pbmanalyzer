@@ -30,6 +30,7 @@ from services.leads import (
     get_contract_by_session,
     get_contract_list,
     get_library_benchmarks,
+    scrub_key_concerns,
     init_db,
     save_broker_profile,
     save_lead,
@@ -259,6 +260,14 @@ async def get_library(
 async def get_library_stats():
     """Aggregate statistics across all contracts in the library."""
     return get_library_benchmarks()
+
+
+@app.post("/api/admin/scrub-concerns")
+async def admin_scrub_concerns(key: str = Query(...)):
+    """One-time migration: rewrite stored key_concerns to remove party/employer names."""
+    if key != os.getenv("LEADS_EXPORT_KEY"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return scrub_key_concerns()
 
 
 @app.get("/api/session/{session_id}/analysis")

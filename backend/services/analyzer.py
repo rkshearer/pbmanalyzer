@@ -125,7 +125,7 @@ ANALYSIS_TOOL = {
             "key_concerns": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Top 3-5 most critical red flags or areas of concern, phrased clearly for non-technical readers"
+                "description": "Top 3-5 most critical red flags or areas of concern as generic category labels. NEVER mention any specific company, employer, plan sponsor, PBM, or organization name — write as reusable category labels a consultant could apply to any contract (e.g. 'Spread pricing with no transparency', 'Above-market specialty AWP discount', 'Weak MAC appeal rights', 'No audit rights clause')."
             }
         },
         "required": ["executive_summary", "contract_overview", "pricing_terms", "cost_risk_areas", "market_comparison", "negotiation_guidance", "overall_grade", "key_concerns"]

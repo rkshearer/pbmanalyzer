@@ -316,6 +316,60 @@ def get_library_benchmarks() -> dict:
     }
 
 
+def scrub_key_concerns() -> dict:
+    """Rewrite all stored key_concerns using Claude Haiku to remove party/employer names."""
+    import anthropic
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT session_id, key_concerns FROM contracts WHERE key_concerns IS NOT NULL"
+        ).fetchall()
+
+    processed = 0
+    updated = 0
+    errors = 0
+
+    for row in rows:
+        processed += 1
+        try:
+            concerns = json.loads(row["key_concerns"] or "[]")
+        except Exception:
+            continue
+        if not concerns:
+            continue
+
+        try:
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=500,
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "Rewrite each of these PBM contract concern labels as a generic category label. "
+                        "Remove any specific company names, employer names, plan sponsor names, or organization names. "
+                        "Keep the concern's meaning intact but make it fully generic — no proper nouns referring to any company or entity. "
+                        "Return ONLY a JSON array of strings, no explanation, no markdown.\n\n"
+                        f"Concerns: {json.dumps(concerns)}"
+                    ),
+                }],
+            )
+            cleaned = json.loads(response.content[0].text.strip())
+            if isinstance(cleaned, list) and len(cleaned) > 0:
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.execute(
+                        "UPDATE contracts SET key_concerns = ? WHERE session_id = ?",
+                        (json.dumps(cleaned), row["session_id"]),
+                    )
+                updated += 1
+        except Exception as e:
+            logging.warning(f"scrub_key_concerns: failed for {row['session_id']}: {e}")
+            errors += 1
+
+    return {"processed": processed, "updated": updated, "errors": errors}
+
+
 # ── Queries ───────────────────────────────────────────────────────────────────
 
 def count_leads() -> int:
