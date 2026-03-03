@@ -29,6 +29,7 @@ from services.leads import (
     get_broker_profile,
     get_contract_by_session,
     get_contract_list,
+    get_library_benchmarks,
     init_db,
     save_broker_profile,
     save_lead,
@@ -252,6 +253,12 @@ async def get_library(
 ):
     """Paginated list of all analyzed contracts, newest first."""
     return get_contract_list(page=page, limit=limit)
+
+
+@app.get("/api/library/stats")
+async def get_library_stats():
+    """Aggregate statistics across all contracts in the library."""
+    return get_library_benchmarks()
 
 
 @app.get("/api/session/{session_id}/analysis")

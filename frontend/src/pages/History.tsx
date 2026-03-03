@@ -1,50 +1,38 @@
 import { useState, useEffect } from 'react'
-import type { ContractListItem, StoredAnalysisResponse, AnalysisReport } from '../types'
-import { getContractLibrary, getStoredAnalysis } from '../api'
+import type { ContractListItem, LibraryStats } from '../types'
+import { getContractLibrary, getLibraryStats } from '../api'
 
 const GRADE_COLORS: Record<string, string> = {
   A: '#2e7d32', B: '#1565c0', C: '#f57c00', D: '#e64a19', F: '#c62828',
 }
 
-interface Props {
-  onOpenReport: (sessionId: string, analysis: AnalysisReport, downloadUrl: string | null) => void
-  onCompare: (sessionId: string) => void
-}
+const GRADE_ORDER = ['A', 'B', 'C', 'D', 'F']
 
-export default function History({ onOpenReport, onCompare }: Props) {
+export default function History() {
   const [contracts, setContracts] = useState<ContractListItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [openingId, setOpeningId] = useState<string | null>(null)
+  const [stats, setStats] = useState<LibraryStats | null>(null)
 
   useEffect(() => {
     setLoading(true)
     setError(null)
-    getContractLibrary(page)
-      .then((data) => {
-        setContracts(data.contracts)
-        setTotal(data.total)
-        setPages(data.pages)
+    Promise.all([
+      getContractLibrary(page),
+      page === 1 ? getLibraryStats() : Promise.resolve(null),
+    ])
+      .then(([listData, statsData]) => {
+        setContracts(listData.contracts)
+        setTotal(listData.total)
+        setPages(listData.pages)
+        if (statsData) setStats(statsData)
       })
       .catch(() => setError('Failed to load contract history.'))
       .finally(() => setLoading(false))
   }, [page])
-
-  const handleOpenReport = async (sessionId: string) => {
-    setOpeningId(sessionId)
-    try {
-      const data: StoredAnalysisResponse = await getStoredAnalysis(sessionId)
-      onOpenReport(sessionId, data.analysis, data.download_url)
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Unknown error'
-      alert(`Could not load report: ${msg}`)
-    } finally {
-      setOpeningId(null)
-    }
-  }
 
   if (loading) {
     return (
@@ -85,6 +73,73 @@ export default function History({ onOpenReport, onCompare }: Props) {
         </div>
       </div>
 
+      {/* Aggregate summary */}
+      {stats && stats.contracts_count > 0 && (
+        <div className="history-stats-grid">
+
+          {/* Grade distribution */}
+          <div className="history-stat-card">
+            <div className="history-stat-label">Grade Distribution</div>
+            <div className="history-grade-dist">
+              {GRADE_ORDER.map((g) => {
+                const count = stats.grade_distribution[g] ?? 0
+                const pct = stats.contracts_count > 0
+                  ? Math.round((count / stats.contracts_count) * 100)
+                  : 0
+                const color = GRADE_COLORS[g]
+                return (
+                  <div key={g} className="history-grade-row">
+                    <span className="history-grade-letter" style={{ color, borderColor: color + '40', background: color + '12' }}>{g}</span>
+                    <div className="history-grade-bar-wrap">
+                      <div
+                        className="history-grade-bar"
+                        style={{ width: `${pct}%`, background: color + '60' }}
+                      />
+                    </div>
+                    <span className="history-grade-count">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Average pricing */}
+          <div className="history-stat-card">
+            <div className="history-stat-label">Average Pricing (AWP Discounts)</div>
+            <div className="history-pricing-list">
+              <div className="history-pricing-row">
+                <span className="history-pricing-term">Brand Retail</span>
+                <span className="history-pricing-val">{stats.avg_brand_retail}</span>
+              </div>
+              <div className="history-pricing-row">
+                <span className="history-pricing-term">Generic Retail</span>
+                <span className="history-pricing-val">{stats.avg_generic_retail}</span>
+              </div>
+              <div className="history-pricing-row">
+                <span className="history-pricing-term">Specialty</span>
+                <span className="history-pricing-val">{stats.avg_specialty}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Most common concerns */}
+          <div className="history-stat-card">
+            <div className="history-stat-label">Most Common Concerns</div>
+            <div className="history-concern-list">
+              {stats.top_concerns.length > 0
+                ? stats.top_concerns.map(([concern, count], i) => (
+                    <div key={i} className="history-concern-stat-row">
+                      <span className="history-concern-chip">{concern}</span>
+                      <span className="history-concern-freq">{count}×</span>
+                    </div>
+                  ))
+                : <span className="history-unknown">No concern data yet</span>}
+            </div>
+          </div>
+
+        </div>
+      )}
+
       <div className="history-table-wrap">
         <table className="history-table">
           <thead>
@@ -93,14 +148,12 @@ export default function History({ onOpenReport, onCompare }: Props) {
               <th>Analyzed</th>
               <th>Grade</th>
               <th>Top Concerns</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {contracts.map((c, rowIndex) => {
               const contractNumber = total - ((page - 1) * 20) - rowIndex
               const gradeColor = GRADE_COLORS[c.overall_grade] ?? '#64748b'
-              const isOpening = openingId === c.session_id
               return (
                 <tr key={c.session_id}>
                   <td className="history-pbm-name">
@@ -127,21 +180,6 @@ export default function History({ onOpenReport, onCompare }: Props) {
                           <div key={i} className="history-concern-chip">{concern}</div>
                         ))
                       : <span className="history-unknown">—</span>}
-                  </td>
-                  <td className="history-actions">
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={() => handleOpenReport(c.session_id)}
-                      disabled={isOpening}
-                    >
-                      {isOpening ? 'Loading…' : 'View Report'}
-                    </button>
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => onCompare(c.session_id)}
-                    >
-                      Compare
-                    </button>
                   </td>
                 </tr>
               )

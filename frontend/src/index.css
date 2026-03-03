@@ -562,6 +562,49 @@ body {
 .history-empty-icon { font-size: 48px; }
 .history-empty h3   { font-size: 18px; font-weight: 700; color: var(--text); }
 
+.history-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.history-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.history-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.history-grade-dist { display: flex; flex-direction: column; gap: 7px; }
+.history-grade-row  { display: flex; align-items: center; gap: 8px; }
+.history-grade-letter {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 6px; border-radius: 5px; border: 1px solid;
+  min-width: 22px; text-align: center;
+}
+.history-grade-bar-wrap {
+  flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+}
+.history-grade-bar  { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.history-grade-count { font-size: 12px; color: var(--text-muted); min-width: 18px; text-align: right; }
+
+.history-pricing-list { display: flex; flex-direction: column; gap: 10px; }
+.history-pricing-row  { display: flex; justify-content: space-between; align-items: baseline; }
+.history-pricing-term { font-size: 13px; color: var(--text-muted); }
+.history-pricing-val  { font-size: 14px; font-weight: 700; color: var(--text); }
+
+.history-concern-list     { display: flex; flex-direction: column; gap: 8px; }
+.history-concern-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.history-concern-freq     { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+
 /* ── Compare View ────────────────────────────────────────────────────────── */
 .compare-view { animation: fadeInUp 0.28s ease forwards; }
 .compare-header {

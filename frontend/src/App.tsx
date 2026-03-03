@@ -100,7 +100,7 @@ export default function App() {
           {/* History page */}
           {page === 'history' && (
             <div className="step-content wide">
-              <History onOpenReport={handleOpenReport} onCompare={handleCompare} />
+              <History />
             </div>
           )}
 

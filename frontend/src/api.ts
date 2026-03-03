@@ -59,6 +59,11 @@ export async function getContractLibrary(
   return response.data
 }
 
+export async function getLibraryStats(): Promise<import('./types').LibraryStats> {
+  const response = await api.get('/api/library/stats')
+  return response.data
+}
+
 export async function getStoredAnalysis(
   sessionId: string,
 ): Promise<import('./types').StoredAnalysisResponse> {

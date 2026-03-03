@@ -97,6 +97,15 @@ export interface ContractListResponse {
   pages: number
 }
 
+export interface LibraryStats {
+  contracts_count: number
+  grade_distribution: Record<string, number>
+  avg_brand_retail: string
+  avg_generic_retail: string
+  avg_specialty: string
+  top_concerns: [string, number][]
+}
+
 export interface StoredAnalysisResponse {
   analysis: AnalysisReport
   download_url: string | null
