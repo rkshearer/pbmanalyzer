@@ -257,7 +257,7 @@ def _call_claude_with_fallbacks(client, system_prompt, messages):
     high max_tokens budget and rely on Opus 4.6's native reasoning ability.
     """
     return client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=8000,
         system=system_prompt,
         messages=messages,
