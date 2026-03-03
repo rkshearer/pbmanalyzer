@@ -4,7 +4,6 @@ Uses the Files API for efficient document handling and extended thinking
 for deep domain-specific contract analysis.
 """
 
-import io
 import os
 import anthropic
 from .models import (
@@ -174,59 +173,24 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
 
     try:
         sessions[session_id].status = SessionStatus.PROCESSING
-        sessions[session_id].status_message = "Uploading contract to analysis engine..."
+        sessions[session_id].status_message = "Reading and parsing contract terms..."
 
         system_prompt = build_system_prompt()
 
-        # Try Files API for efficient handling of large documents
-        file_id = None
-        try:
-            file_content = io.BytesIO(text.encode("utf-8"))
-            file_response = client.beta.files.upload(
-                file=("contract.txt", file_content, "text/plain"),
-            )
-            file_id = file_response.id
-            print(f"[Analyzer] Uploaded to Files API: {file_id}")
-        except Exception as e:
-            print(f"[Analyzer] Files API unavailable ({e}), using direct text")
-
-        sessions[session_id].status_message = "Reading and parsing contract terms..."
-
-        if file_id:
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "document",
-                            "source": {"type": "file", "file_id": file_id},
-                        },
-                        {
-                            "type": "text",
-                            "text": (
-                                "Please perform a comprehensive analysis of this PBM contract. "
-                                "Extract all pricing terms, identify cost risk areas, compare to market benchmarks, "
-                                "and provide specific negotiation guidance. "
-                                "Use the analyze_pbm_contract tool to return your complete structured findings."
-                            ),
-                        },
-                    ],
-                }
-            ]
-        else:
-            text_truncated = text[:120000]
-            messages = [
-                {
-                    "role": "user",
-                    "content": (
-                        "Please perform a comprehensive analysis of this PBM contract. "
-                        "Extract all pricing terms, identify cost risk areas, compare to market benchmarks, "
-                        "and provide specific negotiation guidance. "
-                        "Use the analyze_pbm_contract tool to return your complete structured findings.\n\n"
-                        f"CONTRACT TEXT:\n{text_truncated}"
-                    ),
-                }
-            ]
+        # Pass contract text directly — keeps compatibility with streaming + adaptive thinking
+        text_truncated = text[:120000]
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    "Please perform a comprehensive analysis of this PBM contract. "
+                    "Extract all pricing terms, identify cost risk areas, compare to market benchmarks, "
+                    "and provide specific negotiation guidance. "
+                    "Use the analyze_pbm_contract tool to return your complete structured findings.\n\n"
+                    f"CONTRACT TEXT:\n{text_truncated}"
+                ),
+            }
+        ]
 
         sessions[session_id].status_message = "Analyzing pricing terms and contract structure..."
 
@@ -234,7 +198,6 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
             client=client,
             system_prompt=system_prompt,
             messages=messages,
-            use_files_api=(file_id is not None),
         )
 
         sessions[session_id].status_message = "Comparing to market benchmarks..."
@@ -280,13 +243,6 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
         except Exception as e:
             print(f"[Analyzer] Failed to save/compare contract library: {e}")
 
-        # Clean up Files API file
-        if file_id:
-            try:
-                client.beta.files.delete(file_id)
-            except Exception:
-                pass
-
     except Exception as e:
         sessions[session_id].status = SessionStatus.ERROR
         sessions[session_id].status_message = "Analysis failed"
@@ -294,12 +250,11 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
         print(f"[Analyzer] Error for session {session_id}: {e}")
 
 
-def _call_claude_with_fallbacks(client, system_prompt, messages, use_files_api: bool):
+def _call_claude_with_fallbacks(client, system_prompt, messages):
     """
     Call Claude for contract analysis using streaming (required for adaptive thinking).
-    Attempt 1: Files API (beta) + adaptive thinking, streamed.
-    Attempt 2: Direct text + adaptive thinking, streamed.
-    Attempt 3: Direct text without thinking (SDK version fallback).
+    Attempt 1: Adaptive thinking, streamed.
+    Attempt 2: Without thinking (SDK version fallback).
     """
     base_kwargs = {
         "model": "claude-opus-4-6",
@@ -310,19 +265,7 @@ def _call_claude_with_fallbacks(client, system_prompt, messages, use_files_api: 
         "tool_choice": {"type": "tool", "name": "analyze_pbm_contract"},
     }
 
-    # Attempt 1: Files API (beta) + adaptive thinking, streamed
-    if use_files_api:
-        try:
-            with client.beta.messages.stream(
-                **base_kwargs,
-                thinking={"type": "adaptive"},
-                betas=["files-api-2025-04-14"],
-            ) as stream:
-                return stream.get_final_message()
-        except Exception as e:
-            print(f"[Analyzer] Files API+thinking failed ({type(e).__name__}: {e}), trying direct text")
-
-    # Attempt 2: Direct text + adaptive thinking, streamed
+    # Attempt 1: Adaptive thinking, streamed
     try:
         with client.messages.stream(
             **base_kwargs,
@@ -333,5 +276,5 @@ def _call_claude_with_fallbacks(client, system_prompt, messages, use_files_api: 
         # SDK too old to support thinking parameter — fall back gracefully
         print(f"[Analyzer] thinking param unsupported ({e}), retrying without thinking")
 
-    # Attempt 3: Direct text without thinking (works on any SDK version)
+    # Attempt 2: Without thinking (works on any SDK version)
     return client.messages.create(**base_kwargs)
