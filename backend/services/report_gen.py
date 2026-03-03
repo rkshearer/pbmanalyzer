@@ -7,6 +7,7 @@ Supports optional broker profile for white-label reports.
 
 import os
 from datetime import datetime
+from typing import Optional
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -143,7 +144,7 @@ def _draw_broker_section(c, broker: dict) -> None:
 
 
 def _draw_cover(c, analysis: PBMAnalysisReport, contact_info: ContactInfo,
-                analysis_date: str, broker: dict | None = None):
+                analysis_date: str, broker: Optional[dict] = None):
     """Render the entire cover page using low-level canvas commands."""
     grade       = analysis.overall_grade
     grade_color = GRADE_COLORS.get(grade, PRIMARY)
@@ -304,7 +305,7 @@ def _draw_cover(c, analysis: PBMAnalysisReport, contact_info: ContactInfo,
                         "benefits consultants only.")
 
 
-def _draw_header_footer(c, doc, broker: dict | None = None):
+def _draw_header_footer(c, doc, broker: Optional[dict] = None):
     """Draw the running header and footer on content pages (2+)."""
     firm = (broker.get("firm_name") or broker.get("broker_name") or "").strip() if broker else ""
 
@@ -424,7 +425,7 @@ def get_assessment_style(assessment: str):
 # ── Main report builder ──────────────────────────────────────────────────────
 
 def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
-                        output_path: str, broker: dict | None = None):
+                        output_path: str, broker: Optional[dict] = None):
     analysis_date = datetime.now().strftime("%B %d, %Y")
     # Shift section numbers by 1 when Library Comparison card is present (matches web UI)
     _o = 1 if analysis.library_comparison else 0
