@@ -252,29 +252,15 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
 
 def _call_claude_with_fallbacks(client, system_prompt, messages):
     """
-    Call Claude for contract analysis using streaming (required for adaptive thinking).
-    Attempt 1: Adaptive thinking, streamed.
-    Attempt 2: Without thinking (SDK version fallback).
+    Call Claude for contract analysis.
+    Adaptive thinking is incompatible with forced tool_choice, so we use a
+    high max_tokens budget and rely on Opus 4.6's native reasoning ability.
     """
-    base_kwargs = {
-        "model": "claude-opus-4-6",
-        "max_tokens": 24000,
-        "system": system_prompt,
-        "messages": messages,
-        "tools": [ANALYSIS_TOOL],
-        "tool_choice": {"type": "tool", "name": "analyze_pbm_contract"},
-    }
-
-    # Attempt 1: Adaptive thinking, streamed
-    try:
-        with client.messages.stream(
-            **base_kwargs,
-            thinking={"type": "adaptive"},
-        ) as stream:
-            return stream.get_final_message()
-    except TypeError as e:
-        # SDK too old to support thinking parameter — fall back gracefully
-        print(f"[Analyzer] thinking param unsupported ({e}), retrying without thinking")
-
-    # Attempt 2: Without thinking (works on any SDK version)
-    return client.messages.create(**base_kwargs)
+    return client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=8000,
+        system=system_prompt,
+        messages=messages,
+        tools=[ANALYSIS_TOOL],
+        tool_choice={"type": "tool", "name": "analyze_pbm_contract"},
+    )
