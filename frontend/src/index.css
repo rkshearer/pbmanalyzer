@@ -1211,6 +1211,35 @@ body {
   color: var(--primary);
 }
 
+.login-success {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success);
+  padding: 14px 16px;
+  border-radius: 9px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.forgot-link {
+  text-align: right;
+  margin: -8px 0 12px;
+}
+
+.forgot-link button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.forgot-link button:hover {
+  color: var(--primary-light);
+}
+
 /* ── Header auth elements ──────────────────────────────────────────────────── */
 .header-user-name {
   color: rgba(255,255,255,0.85);

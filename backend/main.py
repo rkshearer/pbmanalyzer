@@ -19,15 +19,20 @@ from pydantic import BaseModel
 
 from services.analyzer import analyze_contract_background
 from services.auth import (
+    ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserOut,
     authenticate_user,
     create_access_token,
+    create_reset_token,
     create_user,
     decode_access_token,
     get_user_by_id,
+    reset_password,
+    send_reset_email,
 )
 from services.document import extract_text
 from services.knowledge import (
@@ -130,6 +135,25 @@ async def login(req: LoginRequest):
 @app.get("/api/auth/me", response_model=UserOut)
 async def get_me(user: UserOut = Depends(get_current_user)):
     return user
+
+
+@app.post("/api/auth/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest):
+    token = create_reset_token(req.email)
+    if token:
+        send_reset_email(req.email.lower().strip(), token)
+    return {"success": True}
+
+
+@app.post("/api/auth/reset-password", response_model=TokenResponse)
+async def reset_password_endpoint(req: ResetPasswordRequest):
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+    user = reset_password(req.token, req.new_password)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link.")
+    access_token = create_access_token(user.id)
+    return TokenResponse(token=access_token, user=user)
 
 
 # ── Analysis Endpoints ────────────────────────────────────────────────────────

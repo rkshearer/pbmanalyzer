@@ -69,6 +69,16 @@ export async function authMe(): Promise<AuthUser> {
   return response.data
 }
 
+export async function authForgotPassword(email: string): Promise<{ success: boolean }> {
+  const response = await api.post('/api/auth/forgot-password', { email })
+  return response.data
+}
+
+export async function authResetPassword(token: string, new_password: string): Promise<AuthResponse> {
+  const response = await api.post('/api/auth/reset-password', { token, new_password })
+  return response.data
+}
+
 export async function uploadContract(file: File): Promise<{ session_id: string }> {
   const formData = new FormData()
   formData.append('file', file)
