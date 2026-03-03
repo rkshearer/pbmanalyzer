@@ -170,7 +170,16 @@ Write for benefits consultants who will present this to employer clients."""
 
 
 def analyze_contract_background(sessions: dict, session_id: str, text: str) -> None:
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        sessions[session_id].status = SessionStatus.ERROR
+        sessions[session_id].status_message = "Analysis failed"
+        sessions[session_id].error_message = (
+            "Analysis service is not configured. Please set the ANTHROPIC_API_KEY environment variable."
+        )
+        return
+
+    client = anthropic.Anthropic(api_key=api_key)
 
     try:
         sessions[session_id].status = SessionStatus.PROCESSING

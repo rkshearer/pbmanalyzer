@@ -49,8 +49,8 @@ async function withRetry<T>(
       lastError = err
       if (axios.isAxiosError(err)) {
         const status = err.response?.status
-        // Don't retry client errors (4xx) except 429
-        if (status && status >= 400 && status < 500 && status !== 429) {
+        // Don't retry client errors (4xx except 429) or 503 (misconfigured)
+        if (status && ((status >= 400 && status < 500 && status !== 429) || status === 503)) {
           throw err
         }
       }

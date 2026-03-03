@@ -111,6 +111,13 @@ async def _run_analysis(session_id: str, text: str):
 
 @app.post("/api/analyze")
 async def analyze_contract(request: Request, file: UploadFile = File(...)):
+    # Verify Anthropic API key is configured
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        raise HTTPException(
+            status_code=503,
+            detail="Analysis service is not configured. The ANTHROPIC_API_KEY environment variable is missing.",
+        )
+
     # Rate limiting
     client_ip = request.client.host if request.client else "unknown"
     if not _check_rate_limit(client_ip):
