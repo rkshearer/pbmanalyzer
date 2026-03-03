@@ -314,17 +314,25 @@ def get_library_benchmarks() -> dict:
         except Exception:
             pass
 
-    # Parse analysis_json for risk distribution and mail AWP discounts
+    # ── Risk distribution ─────────────────────────────────────────────────────
+    # Primary source: cost_risk_areas inside analysis_json (item-level).
+    # Fallback: derive one risk level per contract from its overall_grade
+    # (A/B → low, C → medium, D/F → high) so historical contracts contribute.
+    _GRADE_RISK = {"A": "low", "B": "low", "C": "medium", "D": "high", "F": "high"}
     risk_counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
-    risk_area_counts: dict[str, int] = {}
+    risk_area_counts: dict[str, int] = {}  # from analysis_json cost_risk_areas
+    df_concern_counts: dict[str, int] = {}  # key_concerns from D/F contracts only
     brand_mails: list[str] = []
     generic_mails: list[str] = []
 
+    # Contracts with analysis_json: use proper item-level risk data.
+    json_sessions: set[str] = set()
     for row in json_rows:
         try:
             data = json.loads(row["analysis_json"])
         except Exception:
             continue
+        session_id = data.get("_session_id")  # may not be present; tracked below
         for item in data.get("cost_risk_areas", []):
             level = item.get("risk_level", "").lower()
             if level in risk_counts:
@@ -336,6 +344,22 @@ def get_library_benchmarks() -> dict:
         pt = data.get("pricing_terms", {})
         brand_mails.append(pt.get("brand_mail_awp_discount", "") or "")
         generic_mails.append(pt.get("generic_mail_awp_discount", "") or "")
+
+    # Fallback: grade-based risk for all contracts (covers historical rows).
+    # We count every contract once; if analysis_json item counts already dominate
+    # they will be non-zero and grade fallback adds context for older contracts.
+    for row in rows:
+        grade = row["overall_grade"] or ""
+        level = _GRADE_RISK.get(grade)
+        if level:
+            risk_counts[level] += 1
+        # Collect key_concerns from D/F contracts for top_risk_areas fallback.
+        if grade in ("D", "F"):
+            try:
+                for concern in json.loads(row["key_concerns"] or "[]"):
+                    df_concern_counts[concern] = df_concern_counts.get(concern, 0) + 1
+            except Exception:
+                pass
 
     def _avg_awp(strings: list[str]) -> str:
         vals = [_parse_pct(s) for s in strings]
@@ -353,7 +377,12 @@ def get_library_benchmarks() -> dict:
         return f"${avg:.2f}{suffix}"
 
     top_concerns = sorted(concern_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-    top_risk_areas = sorted(risk_area_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    # top_risk_areas: prefer analysis_json cost_risk_areas (high-risk items);
+    # fall back to key_concerns from D/F-grade contracts when no json data.
+    if risk_area_counts:
+        top_risk_areas = sorted(risk_area_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    else:
+        top_risk_areas = sorted(df_concern_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
     return {
         "contracts_count": count,

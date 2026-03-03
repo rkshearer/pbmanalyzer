@@ -109,12 +109,13 @@ export default function History() {
                   <div className="history-grade-bar-wrap">
                     <div className={`history-grade-bar history-risk-bar-${key}`} style={{ width: `${pct}%` }} />
                   </div>
+                  <span className="history-grade-pct">{pct > 0 ? `${pct}%` : '—'}</span>
                   <span className="history-grade-count">{count}</span>
                 </div>
               )
             })}
             <div className="history-risk-total">
-              {totalRisk} risk items across {stats.contracts_count} contract{stats.contracts_count !== 1 ? 's' : ''}
+              Based on {stats.contracts_count} contract{stats.contracts_count !== 1 ? 's' : ''} by grade
             </div>
           </div>
         </div>
