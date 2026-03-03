@@ -63,6 +63,19 @@ def init_db():
             conn.execute("ALTER TABLE contracts ADD COLUMN analysis_json TEXT")
         except Exception:
             pass  # Column already exists
+
+        # Broker profile table (single-row, upsert on save)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS broker_profile (
+                id          INTEGER PRIMARY KEY,
+                broker_name TEXT DEFAULT '',
+                firm_name   TEXT DEFAULT '',
+                email       TEXT DEFAULT '',
+                phone       TEXT DEFAULT '',
+                logo_path   TEXT,
+                updated_at  TEXT
+            )
+        """)
         conn.commit()
 
 
@@ -352,6 +365,37 @@ def get_contract_by_session(session_id: str) -> Optional[dict]:
         row = conn.execute(
             "SELECT * FROM contracts WHERE session_id = ?", (session_id,)
         ).fetchone()
+    return dict(row) if row else None
+
+
+def save_broker_profile(broker_name: str, firm_name: str, email: str, phone: str,
+                        logo_path: Optional[str] = None) -> None:
+    """Upsert the single broker profile row."""
+    updated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute("SELECT id FROM broker_profile LIMIT 1").fetchone()
+        if row:
+            conn.execute(
+                """UPDATE broker_profile
+                   SET broker_name=?, firm_name=?, email=?, phone=?, logo_path=?, updated_at=?
+                   WHERE id=?""",
+                (broker_name, firm_name, email, phone, logo_path, updated_at, row[0]),
+            )
+        else:
+            conn.execute(
+                """INSERT INTO broker_profile
+                   (broker_name, firm_name, email, phone, logo_path, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (broker_name, firm_name, email, phone, logo_path, updated_at),
+            )
+        conn.commit()
+
+
+def get_broker_profile() -> Optional[dict]:
+    """Return the broker profile dict or None if not configured."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM broker_profile LIMIT 1").fetchone()
     return dict(row) if row else None
 
 

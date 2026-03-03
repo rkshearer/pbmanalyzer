@@ -2,10 +2,13 @@
 PDF report generation using ReportLab.
 Produces a professional, multi-page analysis report for benefits consultants.
 Cover page is drawn entirely with canvas; content pages have a running header/footer.
+Supports optional broker profile for white-label reports.
 """
 
+import os
 from datetime import datetime
 from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
@@ -21,7 +24,7 @@ from reportlab.platypus import (
     KeepTogether,
 )
 
-from .models import PBMAnalysisReport, ContactInfo
+from .models import PBMAnalysisReport, ContactInfo, BrokerProfile
 
 # ── Page dimensions ──────────────────────────────────────────────────────────
 PAGE_W, PAGE_H = letter   # 612 x 792 points
@@ -75,8 +78,72 @@ ASSESSMENT_STYLE = {
 
 # ── Canvas helpers ───────────────────────────────────────────────────────────
 
+def _draw_broker_section(c, broker: dict) -> None:
+    """Draw 'Presented by' broker branding panel on the cover page, below the grade box."""
+    firm = (broker.get("firm_name") or broker.get("broker_name") or "").strip()
+    if not firm:
+        return
+
+    bx = 1.0 * inch
+    bw = PAGE_W - 2.0 * inch
+    bh = 76
+    # Position directly below grade box (grade box bottom = PAGE_H - 490 = 302) with a gap
+    by = PAGE_H - 490 - 16 - bh  # = 210
+
+    # Background panel
+    c.setFillColor(colors.HexColor("#0d2240"))
+    c.rect(bx, by, bw, bh, fill=1, stroke=0)
+
+    # Gold left accent stripe
+    c.setFillColor(ACCENT)
+    c.rect(bx, by, 5, bh, fill=1, stroke=0)
+
+    # "PRESENTED BY" label
+    c.setFillColor(MUTED)
+    c.setFont("Helvetica-Bold", 7)
+    c.drawString(bx + 16, by + bh - 15, "PRESENTED BY")
+
+    # Logo on the right side (if available)
+    logo_path = broker.get("logo_path")
+    if logo_path and os.path.exists(logo_path):
+        try:
+            img = ImageReader(logo_path)
+            img_w, img_h = 48, 42
+            c.drawImage(
+                img,
+                bx + bw - img_w - 16,
+                by + (bh - img_h) // 2,
+                width=img_w,
+                height=img_h,
+                preserveAspectRatio=True,
+                anchor="c",
+                mask="auto",
+            )
+        except Exception:
+            pass  # Logo rendering failure is non-fatal
+
+    # Firm / company name
+    c.setFillColor(WHITE)
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(bx + 16, by + 36, firm[:44])
+
+    # Contact line (broker name · email · phone)
+    parts = []
+    broker_name = (broker.get("broker_name") or "").strip()
+    if broker_name and broker_name.lower() != firm.lower():
+        parts.append(broker_name)
+    if broker.get("email"):
+        parts.append(broker["email"])
+    if broker.get("phone"):
+        parts.append(broker["phone"])
+    if parts:
+        c.setFillColor(colors.HexColor("#a8c4e0"))
+        c.setFont("Helvetica", 9)
+        c.drawString(bx + 16, by + 14, "  ·  ".join(parts)[:70])
+
+
 def _draw_cover(c, analysis: PBMAnalysisReport, contact_info: ContactInfo,
-                analysis_date: str):
+                analysis_date: str, broker: dict | None = None):
     """Render the entire cover page using low-level canvas commands."""
     grade       = analysis.overall_grade
     grade_color = GRADE_COLORS.get(grade, PRIMARY)
@@ -225,6 +292,10 @@ def _draw_cover(c, analysis: PBMAnalysisReport, contact_info: ContactInfo,
     c.drawString(bx + 118, gb_y + gb_h - 97,
                  "and client protection vs. current market standards.")
 
+    # ── Broker branding ───────────────────────────────────────────────────────
+    if broker:
+        _draw_broker_section(c, broker)
+
     # ── Disclaimer ────────────────────────────────────────────────────────
     c.setFillColor(colors.HexColor("#6b96be"))
     c.setFont("Helvetica", 8)
@@ -233,8 +304,10 @@ def _draw_cover(c, analysis: PBMAnalysisReport, contact_info: ContactInfo,
                         "benefits consultants only.")
 
 
-def _draw_header_footer(c, doc):
+def _draw_header_footer(c, doc, broker: dict | None = None):
     """Draw the running header and footer on content pages (2+)."""
+    firm = (broker.get("firm_name") or broker.get("broker_name") or "").strip() if broker else ""
+
     # Header bar
     c.setFillColor(PRIMARY)
     c.rect(0, PAGE_H - 34, PAGE_W, 34, fill=1, stroke=0)
@@ -243,24 +316,25 @@ def _draw_header_footer(c, doc):
     c.setFillColor(ACCENT)
     c.rect(0, PAGE_H - 36, PAGE_W, 2, fill=1, stroke=0)
 
-    # Header text
+    # Header text — left: report title, right: broker firm (if set) + page number
     c.setFillColor(WHITE)
     c.setFont("Helvetica-Bold", 7.5)
     c.drawString(0.85 * inch, PAGE_H - 21, "PBM CONTRACT ANALYSIS REPORT")
 
     c.setFont("Helvetica", 7.5)
-    c.drawRightString(PAGE_W - 0.85 * inch, PAGE_H - 21, f"Page {doc.page}")
+    right_text = f"{firm[:40]}  ·  Page {doc.page}" if firm else f"Page {doc.page}"
+    c.drawRightString(PAGE_W - 0.85 * inch, PAGE_H - 21, right_text)
 
     # Footer separator
     c.setStrokeColor(colors.HexColor("#d1d9e0"))
     c.setLineWidth(0.4)
     c.line(0.85 * inch, 0.44 * inch, PAGE_W - 0.85 * inch, 0.44 * inch)
 
-    # Footer text
+    # Footer text — broker firm name when set, otherwise generic confidentiality notice
+    footer_text = firm if firm else "CONFIDENTIAL — For Benefits Consultant Use Only"
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 7)
-    c.drawCentredString(PAGE_W / 2, 0.27 * inch,
-                        "CONFIDENTIAL — For Benefits Consultant Use Only")
+    c.drawCentredString(PAGE_W / 2, 0.27 * inch, footer_text)
 
 
 # ── Paragraph styles ─────────────────────────────────────────────────────────
@@ -350,7 +424,7 @@ def get_assessment_style(assessment: str):
 # ── Main report builder ──────────────────────────────────────────────────────
 
 def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
-                        output_path: str):
+                        output_path: str, broker: dict | None = None):
     analysis_date = datetime.now().strftime("%B %d, %Y")
     # Shift section numbers by 1 when Library Comparison card is present (matches web UI)
     _o = 1 if analysis.library_comparison else 0
@@ -368,15 +442,15 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
 
     styles = make_styles()
 
-    # Page callbacks (closures capture analysis/contact_info/date)
+    # Page callbacks (closures capture analysis/contact_info/date/broker)
     def _on_first_page(canvas, doc):
         canvas.saveState()
-        _draw_cover(canvas, analysis, contact_info, analysis_date)
+        _draw_cover(canvas, analysis, contact_info, analysis_date, broker=broker)
         canvas.restoreState()
 
     def _on_later_pages(canvas, doc):
         canvas.saveState()
-        _draw_header_footer(canvas, doc)
+        _draw_header_footer(canvas, doc, broker=broker)
         canvas.restoreState()
 
     story = []

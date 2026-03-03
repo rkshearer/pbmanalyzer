@@ -77,6 +77,14 @@ class PBMAnalysisReport(BaseModel):
     library_comparison: Optional[LibraryComparison] = None
 
 
+class BrokerProfile(BaseModel):
+    broker_name: str = ""
+    firm_name: str = ""
+    email: str = ""
+    phone: str = ""
+    logo_path: Optional[str] = None
+
+
 class SessionStatus(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"

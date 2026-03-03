@@ -26,9 +26,11 @@ from services.knowledge import (
 from services.leads import (
     count_leads,
     export_leads_csv,
+    get_broker_profile,
     get_contract_by_session,
     get_contract_list,
     init_db,
+    save_broker_profile,
     save_lead,
 )
 from services.models import ContactInfo, PBMAnalysisReport, SessionData, SessionStatus
@@ -144,7 +146,8 @@ async def submit_contact_and_get_report(session_id: str, contact_data: ContactFo
 
     pdf_path = os.path.join(REPORTS_DIR, f"{session_id}.pdf")
     try:
-        generate_pdf_report(session.analysis_result, contact_info, pdf_path)
+        broker = get_broker_profile()
+        generate_pdf_report(session.analysis_result, contact_info, pdf_path, broker=broker)
         session.pdf_path = pdf_path
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF report: {str(e)}")
@@ -440,6 +443,66 @@ async def trigger_knowledge_update():
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, update_knowledge_base)
     return {"success": True, **result}
+
+
+# ── Broker Profile (White-Label) ──────────────────────────────────────────────
+
+class BrokerProfileData(BaseModel):
+    broker_name: str = ""
+    firm_name: str = ""
+    email: str = ""
+    phone: str = ""
+
+
+@app.get("/api/broker")
+async def get_broker():
+    """Return current broker profile for the settings UI."""
+    profile = get_broker_profile()
+    if not profile:
+        return {"broker_name": "", "firm_name": "", "email": "", "phone": "", "logo_url": None}
+    logo_url = "/api/broker/logo" if (profile.get("logo_path") and os.path.exists(profile["logo_path"])) else None
+    return {**profile, "logo_url": logo_url}
+
+
+@app.post("/api/broker")
+async def save_broker(data: BrokerProfileData):
+    """Save broker profile (text fields only; logo uploaded separately)."""
+    current = get_broker_profile()
+    logo_path = current.get("logo_path") if current else None
+    save_broker_profile(data.broker_name, data.firm_name, data.email, data.phone, logo_path)
+    return {"success": True}
+
+
+@app.post("/api/broker/logo")
+async def upload_broker_logo(file: UploadFile = File(...)):
+    """Upload and store the broker logo. Accepted: PNG, JPG, WEBP."""
+    fname = file.filename or "logo.png"
+    ext = os.path.splitext(fname)[1].lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".webp"):
+        raise HTTPException(status_code=400, detail="Supported formats: PNG, JPG, WEBP")
+    logo_path = os.path.join(_DATA_DIR, f"broker_logo{ext}")
+    content = await file.read()
+    with open(logo_path, "wb") as f:
+        f.write(content)
+    # Persist logo path alongside existing text fields
+    current = get_broker_profile()
+    if current:
+        save_broker_profile(
+            current.get("broker_name", ""), current.get("firm_name", ""),
+            current.get("email", ""), current.get("phone", ""), logo_path,
+        )
+    else:
+        save_broker_profile("", "", "", "", logo_path)
+    return {"success": True, "logo_url": "/api/broker/logo"}
+
+
+@app.get("/api/broker/logo")
+async def get_broker_logo():
+    """Serve the stored broker logo file."""
+    profile = get_broker_profile()
+    if not profile or not profile.get("logo_path") or not os.path.exists(profile["logo_path"]):
+        raise HTTPException(status_code=404, detail="No broker logo set.")
+    return FileResponse(profile["logo_path"])
 
 
 # ── Health Check ──────────────────────────────────────────────────────────────

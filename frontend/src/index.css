@@ -922,6 +922,92 @@ body {
   font-weight: 800; font-size: 13px; margin: 0 3px;
 }
 
+/* ── Broker Settings Modal ───────────────────────────────────────────────── */
+.header-settings-btn {
+  opacity: 0.75;
+  font-size: 13px;
+}
+.header-settings-btn:hover { opacity: 1; }
+
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(10, 20, 40, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  animation: fadeInUp 0.18s ease forwards;
+}
+
+.modal-card {
+  background: var(--card); border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 560px;
+  display: flex; flex-direction: column;
+  max-height: calc(100vh - 48px); overflow-y: auto;
+}
+
+.modal-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 28px 28px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title    { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
+.modal-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+.modal-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 18px; line-height: 1;
+  padding: 2px 6px; border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0; margin-top: -2px;
+}
+.modal-close:hover { background: var(--danger-bg); color: var(--danger); }
+
+.modal-body   { padding: 24px 28px; display: flex; flex-direction: column; gap: 18px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 28px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.broker-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.form-group   { display: flex; flex-direction: column; gap: 6px; }
+.form-label   { font-size: 13px; font-weight: 600; color: var(--text); }
+.form-input {
+  padding: 9px 13px;
+  border: 1.5px solid var(--border); border-radius: 9px;
+  font-size: 14px; color: var(--text); background: #fff;
+  font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(30,58,95,0.1); }
+.form-input::placeholder { color: #b0bec5; }
+
+.form-error {
+  background: var(--danger-bg); border: 1px solid var(--danger-border);
+  color: var(--danger); border-radius: 8px; padding: 10px 14px; font-size: 13.5px;
+}
+
+.logo-upload-area {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--border); border-radius: 10px;
+  background: #f8fafc;
+}
+.logo-preview {
+  max-height: 56px; max-width: 120px;
+  object-fit: contain; border-radius: 6px;
+  border: 1px solid var(--border); background: #fff; padding: 4px;
+}
+.logo-upload-controls { display: flex; flex-direction: column; gap: 6px; }
+.logo-hint { font-size: 12px; color: var(--text-muted); }
+
+.broker-preview-note {
+  font-size: 12.5px; color: var(--text-muted);
+  line-height: 1.55; padding: 12px 14px;
+  background: var(--primary-pale); border-radius: 8px;
+  border-left: 3px solid var(--primary);
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 680px) {
   .step-text { display: none; }

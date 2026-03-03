@@ -128,6 +128,14 @@ export interface ChatMessage {
   content: string
 }
 
+export interface BrokerProfile {
+  broker_name: string
+  firm_name: string
+  email: string
+  phone: string
+  logo_url: string | null
+}
+
 export interface PricingDelta {
   term: string
   original_val: string

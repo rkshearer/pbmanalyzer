@@ -107,6 +107,31 @@ export async function downloadNegotiationLetter(sessionId: string): Promise<void
   URL.revokeObjectURL(url)
 }
 
+// ── Broker Profile ──────────────────────────────────────────────────────────
+
+export async function getBrokerProfile(): Promise<import('./types').BrokerProfile> {
+  const response = await api.get('/api/broker')
+  return response.data
+}
+
+export async function saveBrokerProfile(data: {
+  broker_name: string
+  firm_name: string
+  email: string
+  phone: string
+}): Promise<void> {
+  await api.post('/api/broker', data)
+}
+
+export async function uploadBrokerLogo(file: File): Promise<{ logo_url: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post('/api/broker/logo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data
+}
+
 /** Download the RFP question bank XLSX and trigger browser save. */
 export async function downloadRfpExport(sessionId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/rfp/${sessionId}`, {

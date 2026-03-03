@@ -7,6 +7,7 @@ import KnowledgeStatus from './components/KnowledgeStatus'
 import CompareView from './components/CompareView'
 import RevisionFlow from './components/RevisionFlow'
 import History from './pages/History'
+import BrokerSettings from './components/BrokerSettings'
 import type { AnalysisReport } from './types'
 
 type Step = 1 | 2 | 3 | 4
@@ -26,6 +27,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState<AnalysisReport | null>(null)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [compareSessionId, setCompareSessionId] = useState<string>('')
+  const [showBrokerSettings, setShowBrokerSettings] = useState(false)
 
   const handleOpenReport = (sid: string, a: AnalysisReport, url: string | null) => {
     setSessionId(sid)
@@ -77,6 +79,13 @@ export default function App() {
                   onClick={() => setPage('history')}
                 >
                   History
+                </button>
+                <button
+                  className="header-nav-link header-settings-btn"
+                  onClick={() => setShowBrokerSettings(true)}
+                  title="Broker Profile Settings"
+                >
+                  ⚙ Settings
                 </button>
               </nav>
               <KnowledgeStatus />
@@ -179,6 +188,10 @@ export default function App() {
           <p>© 2026 PBM Contract Analyzer · Powered by Claude AI · Confidential</p>
         </div>
       </footer>
+
+      {showBrokerSettings && (
+        <BrokerSettings onClose={() => setShowBrokerSettings(false)} />
+      )}
     </div>
   )
 }
