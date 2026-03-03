@@ -29,14 +29,6 @@ export default function App() {
   const [compareSessionId, setCompareSessionId] = useState<string>('')
   const [showBrokerSettings, setShowBrokerSettings] = useState(false)
 
-  const handleOpenReport = (sid: string, a: AnalysisReport, url: string | null) => {
-    setSessionId(sid)
-    setAnalysis(a)
-    setDownloadUrl(url)
-    setStep(4)
-    setPage('main')
-  }
-
   const handleCompare = (sid: string) => {
     setCompareSessionId(sid)
     setPage('compare')
