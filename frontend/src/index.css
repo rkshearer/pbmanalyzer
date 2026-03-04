@@ -279,7 +279,7 @@ body {
   padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 9px;
   font-size: 15px; font-family: inherit; color: var(--text); background: #fafbfc;
   transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
-  outline: none;
+  outline: none; min-width: 0;
 }
 .form-input:focus      { border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(30,58,95,0.1); }
 .form-input.error      { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,0.08); }

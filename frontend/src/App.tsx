@@ -82,6 +82,11 @@ export default function App() {
     setPage('revision')
   }
 
+  // Scroll to top on step change
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [step])
+
   return (
     <div className="app">
       <header className="header">
