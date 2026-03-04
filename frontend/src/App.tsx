@@ -24,8 +24,10 @@ const STEP_LABELS: Record<number, string> = {
 
 const AUTH_DISABLED = import.meta.env.VITE_AUTH_DISABLED === 'true'
 
+const _GUEST_USER: AuthUser = { id: 0, email: 'guest@test', first_name: 'Tester', last_name: 'User' }
+
 export default function App() {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(AUTH_DISABLED ? _GUEST_USER : null)
   const [authLoading, setAuthLoading] = useState(!AUTH_DISABLED)
   const [page, setPage] = useState<Page>('main')
   const [step, setStep] = useState<Step>(1)
@@ -37,10 +39,7 @@ export default function App() {
 
   // Check for existing token on mount (skip when auth disabled)
   useEffect(() => {
-    if (AUTH_DISABLED) {
-      setAuthUser({ id: 0, email: 'guest@test', first_name: 'Tester', last_name: 'User' })
-      return
-    }
+    if (AUTH_DISABLED) return
     const token = getStoredToken()
     if (!token) {
       setAuthLoading(false)
