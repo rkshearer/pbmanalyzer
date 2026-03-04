@@ -22,9 +22,11 @@ const STEP_LABELS: Record<number, string> = {
   4: 'Your Report',
 }
 
+const AUTH_DISABLED = import.meta.env.VITE_AUTH_DISABLED === 'true'
+
 export default function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(!AUTH_DISABLED)
   const [page, setPage] = useState<Page>('main')
   const [step, setStep] = useState<Step>(1)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -33,8 +35,12 @@ export default function App() {
   const [compareSessionId, setCompareSessionId] = useState<string>('')
   const [showBrokerSettings, setShowBrokerSettings] = useState(false)
 
-  // Check for existing token on mount
+  // Check for existing token on mount (skip when auth disabled)
   useEffect(() => {
+    if (AUTH_DISABLED) {
+      setAuthUser({ id: 0, email: 'guest@test', first_name: 'Tester', last_name: 'User' })
+      return
+    }
     const token = getStoredToken()
     if (!token) {
       setAuthLoading(false)

@@ -57,6 +57,8 @@ from services.report_gen import generate_pdf_report
 
 load_dotenv()
 
+AUTH_DISABLED = os.getenv("AUTH_DISABLED", "").lower() == "true"
+
 _DATA_DIR = os.getenv("DATA_DIR", os.path.dirname(__file__))
 REPORTS_DIR = os.path.join(_DATA_DIR, "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
@@ -90,13 +92,19 @@ app.add_middleware(
 
 # ── Auth Dependency ───────────────────────────────────────────────────────────
 
-_bearer = HTTPBearer()
+_bearer = HTTPBearer(auto_error=not AUTH_DISABLED)
+
+_GUEST_USER = UserOut(id=0, email="guest@test", first_name="Test", last_name="User")
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
 ) -> UserOut:
     """Extract and validate the JWT from the Authorization header."""
+    if AUTH_DISABLED and credentials is None:
+        return _GUEST_USER
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
     user_id = decode_access_token(credentials.credentials)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
