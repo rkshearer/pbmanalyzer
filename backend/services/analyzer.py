@@ -13,6 +13,7 @@ from .models import (
     PricingTerms,
     CostRiskItem,
     MarketComparison,
+    SavingsItem,
     SessionStatus,
 )
 from .knowledge import load_knowledge, format_knowledge_for_prompt, record_analysis_insights
@@ -126,9 +127,40 @@ ANALYSIS_TOOL = {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": "Top 3-5 most critical red flags or areas of concern as generic category labels. NEVER mention any specific company, employer, plan sponsor, PBM, or organization name — write as reusable category labels a consultant could apply to any contract (e.g. 'Spread pricing with no transparency', 'Above-market specialty AWP discount', 'Weak MAC appeal rights', 'No audit rights clause')."
+            },
+            "savings_opportunities": {
+                "type": "array",
+                "description": (
+                    "3–6 concrete cost savings opportunities INDEPENDENT of PBM renegotiation — "
+                    "actions the employer/broker can take now without waiting for contract renewal. "
+                    "Pull from biosimilar_opportunities, patent_cliff_generics, alternative_pharmacy_programs, "
+                    "and manufacturer_coupon_provisions in the knowledge base. Only include opportunities "
+                    "that are plausible given what was found in this contract (e.g. specialty drugs present, "
+                    "generic pricing issues found, coupon/accumulator language identified). "
+                    "Fewer high-quality items is better than padding with generic advice. "
+                    "These are DISTINCT from negotiation_guidance (which requires PBM cooperation)."
+                ),
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "string",
+                            "enum": ["Biosimilar Opportunity", "New Generic Available", "Alternative Pharmacy", "Coupon/Accumulator", "Formulary Optimization"]
+                        },
+                        "drug_or_area": {"type": "string", "description": "Specific drug name, drug class, or cost area"},
+                        "opportunity": {"type": "string", "description": "2–3 sentence plain-English description of the savings opportunity"},
+                        "estimated_impact": {
+                            "type": "string",
+                            "enum": ["High", "Medium", "Low"],
+                            "description": "Relative impact on a typical employer plan"
+                        },
+                        "action_required": {"type": "string", "description": "Specific next step for broker/employer to capture this saving"}
+                    },
+                    "required": ["category", "drug_or_area", "opportunity", "estimated_impact", "action_required"]
+                }
             }
         },
-        "required": ["executive_summary", "contract_overview", "pricing_terms", "cost_risk_areas", "market_comparison", "negotiation_guidance", "overall_grade", "key_concerns"]
+        "required": ["executive_summary", "contract_overview", "pricing_terms", "cost_risk_areas", "market_comparison", "negotiation_guidance", "overall_grade", "key_concerns", "savings_opportunities"]
     }
 }
 
@@ -165,7 +197,16 @@ IMPORTANT RULES:
 - When comparing to benchmarks, always note whether the contract uses pass-through or spread pricing, as this changes how every other metric should be interpreted
 - Rebate guarantees are always PMPY (per member per year) not PEPM; do not confuse these units
 
-Write for benefits consultants who will present this to employer clients."""
+Write for benefits consultants who will present this to employer clients.
+
+SAVINGS OPPORTUNITIES GUIDANCE:
+When generating savings_opportunities, consult the biosimilar_opportunities, patent_cliff_generics, alternative_pharmacy_programs, and manufacturer_coupon_provisions sections of the knowledge base above. Apply the following logic:
+- If the contract includes specialty drug pricing or the employer has autoimmune/biologic utilization, check biosimilar_opportunities for Humira, Stelara, Remicade, Enbrel, or Lantus biosimilar switches — these are nearly always relevant and high-impact.
+- If the contract shows weak generic discounts, spread pricing, or opaque MAC, recommend alternative pharmacy programs (Cost Plus Drugs, Amazon Pharmacy) for high-volume generics — these are employer-actionable without PBM cooperation.
+- If the contract contains accumulator adjustment, maximizer, or vague coupon handling language, flag a Coupon/Accumulator savings item with the specific provision found.
+- If the contract covers high-volume brand drugs with upcoming patent cliffs (Eliquis/apixaban, Jardiance/empagliflozin, Xarelto/rivaroxaban), recommend formulary optimization to capture generic savings.
+- Generate 3–6 items. Do not pad with generic advice — only include opportunities genuinely supported by what you found in this specific contract.
+- savings_opportunities are independent employer/broker actions; negotiation_guidance requires PBM cooperation. Keep them distinct."""
 
 
 def analyze_contract_background(sessions: dict, session_id: str, text: str) -> None:
@@ -213,6 +254,17 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
         sessions[session_id].status_message = "Generating recommendations..."
 
         data = tool_use_block.input
+        savings_opps = [
+            SavingsItem(
+                category=item["category"],
+                drug_or_area=item["drug_or_area"],
+                opportunity=item["opportunity"],
+                estimated_impact=item["estimated_impact"],
+                action_required=item["action_required"],
+            )
+            for item in data.get("savings_opportunities", [])
+            if isinstance(item, dict)
+        ]
         analysis = PBMAnalysisReport(
             executive_summary=data["executive_summary"],
             contract_overview=ContractOverview(**data["contract_overview"]),
@@ -222,6 +274,7 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
             negotiation_guidance=data["negotiation_guidance"],
             overall_grade=data["overall_grade"],
             key_concerns=data["key_concerns"],
+            savings_opportunities=savings_opps,
         )
 
         sessions[session_id].analysis_result = analysis

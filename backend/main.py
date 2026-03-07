@@ -551,6 +551,16 @@ async def knowledge_status(_user: UserOut = Depends(get_current_user)):
     return get_knowledge_status()
 
 
+@app.get("/api/glossary")
+async def get_glossary():
+    """Return the PBM term glossary (no auth required — reference data)."""
+    try:
+        from services.knowledge import PBM_GLOSSARY
+        return {"glossary": PBM_GLOSSARY}
+    except Exception as e:
+        return {"glossary": [], "error": str(e)}
+
+
 @app.post("/api/knowledge/update")
 async def trigger_knowledge_update(_user: UserOut = Depends(get_current_user)):
     """Manually trigger a knowledge base update from public sources."""

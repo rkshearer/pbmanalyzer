@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import type { AnalysisReport, CostRiskItem, LibraryComparison, ChatMessage } from '../types'
+import type { AnalysisReport, CostRiskItem, LibraryComparison, ChatMessage, SavingsItem } from '../types'
 import { API_BASE_URL, downloadNegotiationLetter, downloadRfpExport, getStoredToken } from '../api'
 
 interface Props {
@@ -28,6 +28,26 @@ const GRADE_LABELS: Record<string, string> = {
   C: 'Average — Market Rate',
   D: 'Below Market — Needs Improvement',
   F: 'Unfavorable — Significant Concerns',
+}
+
+const SAVINGS_CATEGORY_COLORS: Record<string, { bg: string; accent: string; pill: string }> = {
+  'Biosimilar Opportunity':  { bg: '#dcfce7', accent: '#16a34a', pill: '#bbf7d0' },
+  'New Generic Available':   { bg: '#dbeafe', accent: '#1d4ed8', pill: '#bfdbfe' },
+  'Alternative Pharmacy':    { bg: '#f3e8ff', accent: '#7c3aed', pill: '#e9d5ff' },
+  'Coupon/Accumulator':      { bg: '#ffedd5', accent: '#ea580c', pill: '#fed7aa' },
+  'Formulary Optimization':  { bg: '#ccfbf1', accent: '#0d9488', pill: '#99f6e4' },
+}
+
+const SAVINGS_IMPACT_COLORS: Record<string, { bg: string; color: string }> = {
+  High:   { bg: '#fee2e2', color: '#b91c1c' },
+  Medium: { bg: '#ffedd5', color: '#c2410c' },
+  Low:    { bg: '#dbeafe', color: '#1d4ed8' },
+}
+
+interface GlossaryEntry {
+  term: string
+  definition: string
+  example?: string
 }
 
 function getAssessmentClass(assessment: string): string {
@@ -292,6 +312,43 @@ export default function ReportView({ analysis, downloadUrl, sessionId, onCompare
   const [letterLoading, setLetterLoading] = useState(false)
   const [rfpLoading, setRfpLoading] = useState(false)
 
+  // Glossary state
+  const [glossaryOpen, setGlossaryOpen] = useState(false)
+  const [glossaryLoaded, setGlossaryLoaded] = useState(false)
+  const [glossaryTerms, setGlossaryTerms] = useState<GlossaryEntry[]>([])
+  const [glossarySearch, setGlossarySearch] = useState('')
+  const [glossaryExpanded, setGlossaryExpanded] = useState<Record<string, boolean>>({})
+  const [glossaryError, setGlossaryError] = useState<string | null>(null)
+
+  const handleGlossaryToggle = async () => {
+    const opening = !glossaryOpen
+    setGlossaryOpen(opening)
+    if (opening && !glossaryLoaded) {
+      try {
+        const headers: Record<string, string> = {}
+        const token = getStoredToken()
+        if (token) headers['Authorization'] = `Bearer ${token}`
+        const res = await fetch(`${API_BASE_URL}/api/glossary`, { headers })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        setGlossaryTerms(data.glossary ?? [])
+        setGlossaryLoaded(true)
+      } catch (e: unknown) {
+        setGlossaryError(e instanceof Error ? e.message : 'Failed to load glossary')
+        setGlossaryLoaded(true)
+      }
+    }
+  }
+
+  const toggleGlossaryTerm = (term: string) => {
+    setGlossaryExpanded(prev => ({ ...prev, [term]: !prev[term] }))
+  }
+
+  const filteredGlossary = glossaryTerms.filter(entry => {
+    const q = glossarySearch.toLowerCase()
+    return !q || entry.term.toLowerCase().includes(q) || entry.definition.toLowerCase().includes(q)
+  })
+
   const handleDownload = () => {
     if (!downloadUrl) return
     const a = document.createElement('a')
@@ -330,7 +387,9 @@ export default function ReportView({ analysis, downloadUrl, sessionId, onCompare
   const pt = analysis.pricing_terms
   const mc = analysis.market_comparison
   const lc = analysis.library_comparison
-  const sn = (n: number) => String(lc ? n + 1 : n).padStart(2, '0')
+  const hasSavings = !!(analysis.savings_opportunities && analysis.savings_opportunities.length > 0)
+  const _o = lc ? 1 : 0
+  const sn = (n: number) => String(n + _o).padStart(2, '0')
 
   return (
     <div className="report-section">
@@ -556,6 +615,65 @@ export default function ReportView({ analysis, downloadUrl, sessionId, onCompare
         </ol>
       </SectionCard>
 
+      {/* Cost Savings Opportunities */}
+      {hasSavings && (
+        <SectionCard num={sn(8)} title="Cost Savings Opportunities">
+          <p className="section-intro">
+            The following opportunities can be pursued <strong>independently of PBM renegotiation</strong> — actions your client can take now to reduce pharmacy costs without waiting for contract renewal.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+            {(analysis.savings_opportunities as SavingsItem[]).map((item, i) => {
+              const colors = SAVINGS_CATEGORY_COLORS[item.category] ?? { bg: '#f8fafc', accent: '#64748b', pill: '#e2e8f0' }
+              const impactColors = SAVINGS_IMPACT_COLORS[item.estimated_impact] ?? { bg: '#f1f5f9', color: '#475569' }
+              return (
+                <div
+                  key={i}
+                  style={{
+                    background: colors.bg,
+                    borderLeft: `4px solid ${colors.accent}`,
+                    borderRadius: '8px',
+                    padding: '14px 16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      background: colors.pill,
+                      color: colors.accent,
+                      fontWeight: 600,
+                      fontSize: '11px',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      letterSpacing: '0.03em',
+                    }}>
+                      {item.category}
+                    </span>
+                    <span style={{
+                      background: impactColors.bg,
+                      color: impactColors.color,
+                      fontWeight: 600,
+                      fontSize: '11px',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                    }}>
+                      {item.estimated_impact} Impact
+                    </span>
+                    <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '14px' }}>
+                      {item.drug_or_area}
+                    </span>
+                  </div>
+                  <p style={{ color: '#334155', fontSize: '14px', margin: '0 0 8px 0', lineHeight: 1.55 }}>
+                    {item.opportunity}
+                  </p>
+                  <p style={{ color: '#475569', fontSize: '13px', margin: 0 }}>
+                    <strong>Action Required:</strong> {item.action_required}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </SectionCard>
+      )}
+
       {/* Chat / Q&A */}
       <ChatPanel sessionId={sessionId} />
 
@@ -584,6 +702,125 @@ export default function ReportView({ analysis, downloadUrl, sessionId, onCompare
           </button>
         </div>
       </div>
+
+      {/* Inline Glossary */}
+      <section className="report-section-card" style={{ marginTop: '24px' }}>
+        <div className="section-inner">
+          <button
+            onClick={handleGlossaryToggle}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <p className="section-num" style={{ margin: 0 }}>?</p>
+              <h2 className="section-title" style={{ margin: 0 }}>PBM Term Glossary</h2>
+              {glossaryLoaded && glossaryTerms.length > 0 && (
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+                  {glossaryTerms.length} terms
+                </span>
+              )}
+            </div>
+            <span style={{ fontSize: '18px', color: '#64748b', lineHeight: 1 }}>
+              {glossaryOpen ? '▲' : '▼'}
+            </span>
+          </button>
+
+          {glossaryOpen && (
+            <div style={{ marginTop: '16px' }}>
+              <div className="section-divider" />
+              {!glossaryLoaded && (
+                <p style={{ color: '#64748b', textAlign: 'center', padding: '24px 0' }}>Loading glossary…</p>
+              )}
+              {glossaryError && (
+                <p style={{ color: '#dc2626', textAlign: 'center', padding: '16px 0' }}>
+                  Could not load glossary: {glossaryError}
+                </p>
+              )}
+              {glossaryLoaded && !glossaryError && (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Search terms…"
+                    value={glossarySearch}
+                    onChange={e => setGlossarySearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      marginTop: '12px',
+                      marginBottom: '12px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  {filteredGlossary.length === 0 && (
+                    <p style={{ color: '#64748b', textAlign: 'center', padding: '16px 0' }}>
+                      No matching terms.
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {filteredGlossary.map(entry => (
+                      <div
+                        key={entry.term}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <button
+                          onClick={() => toggleGlossaryTerm(entry.term)}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            width: '100%',
+                            padding: '10px 14px',
+                            background: glossaryExpanded[entry.term] ? '#f1f5f9' : '#ffffff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            color: '#1e293b',
+                          }}
+                        >
+                          {entry.term}
+                          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                            {glossaryExpanded[entry.term] ? '▲' : '▼'}
+                          </span>
+                        </button>
+                        {glossaryExpanded[entry.term] && (
+                          <div style={{ padding: '10px 14px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                            <p style={{ margin: '0 0 6px 0', fontSize: '14px', color: '#334155', lineHeight: 1.55 }}>
+                              {entry.definition}
+                            </p>
+                            {entry.example && (
+                              <p style={{ margin: 0, fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>
+                                Example: {entry.example}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

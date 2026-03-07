@@ -64,6 +64,14 @@ export interface LibraryComparison {
   this_specialty: string
 }
 
+export interface SavingsItem {
+  category: 'Biosimilar Opportunity' | 'New Generic Available' | 'Alternative Pharmacy' | 'Coupon/Accumulator' | 'Formulary Optimization'
+  drug_or_area: string
+  opportunity: string
+  estimated_impact: 'High' | 'Medium' | 'Low'
+  action_required: string
+}
+
 export interface AnalysisReport {
   executive_summary: string
   contract_overview: ContractOverview
@@ -74,6 +82,7 @@ export interface AnalysisReport {
   overall_grade: 'A' | 'B' | 'C' | 'D' | 'F'
   key_concerns: string[]
   library_comparison?: LibraryComparison
+  savings_opportunities?: SavingsItem[]
 }
 
 export interface AnalysisStatus {

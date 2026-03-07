@@ -65,6 +65,14 @@ class LibraryComparison(BaseModel):
     this_specialty: str
 
 
+class SavingsItem(BaseModel):
+    category: str  # "Biosimilar Opportunity" | "New Generic Available" | "Alternative Pharmacy" | "Coupon/Accumulator" | "Formulary Optimization"
+    drug_or_area: str
+    opportunity: str
+    estimated_impact: str  # "High" | "Medium" | "Low"
+    action_required: str
+
+
 class PBMAnalysisReport(BaseModel):
     executive_summary: str
     contract_overview: ContractOverview
@@ -75,6 +83,7 @@ class PBMAnalysisReport(BaseModel):
     overall_grade: str
     key_concerns: list[str]
     library_comparison: Optional[LibraryComparison] = None
+    savings_opportunities: list[SavingsItem] = []
 
 
 class BrokerProfile(BaseModel):

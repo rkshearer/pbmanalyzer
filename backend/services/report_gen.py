@@ -428,9 +428,14 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
                         output_path: str, broker: Optional[dict] = None):
     analysis_date = datetime.now().strftime("%B %d, %Y")
     # Shift section numbers by 1 when Library Comparison card is present (matches web UI)
+    # Shift by an additional 1 when Cost Savings section is present
     _o = 1 if analysis.library_comparison else 0
+    _s = 1 if analysis.savings_opportunities else 0
     def sn(n: int) -> str:
         return f"{n + _o:02d}"
+    def snl(n: int) -> str:
+        """Section number for sections after Cost Savings (shifted by savings offset too)."""
+        return f"{n + _o + _s:02d}"
 
     doc = SimpleDocTemplate(
         output_path,
@@ -882,6 +887,163 @@ def generate_pdf_report(analysis: PBMAnalysisReport, contact_info: ContactInfo,
         ]))
         story.append(g_row)
         story.append(Spacer(1, 5))
+
+    # ── 08 COST SAVINGS OPPORTUNITIES ───────────────────────────────────────────
+    if analysis.savings_opportunities:
+        story.append(Spacer(1, 0.3 * inch))
+        story += section_header(sn(8), "Cost Savings Opportunities", styles)
+        story.append(Paragraph(
+            "The following opportunities are independent of PBM renegotiation — actions the employer "
+            "and broker can take now, within the current plan year, without waiting for contract renewal.",
+            styles["body"],
+        ))
+        story.append(Spacer(1, 0.1 * inch))
+
+        SAVINGS_COLORS = {
+            "Biosimilar Opportunity":  (colors.HexColor("#dcfce7"), colors.HexColor("#16a34a")),
+            "New Generic Available":   (colors.HexColor("#dbeafe"), colors.HexColor("#1d4ed8")),
+            "Alternative Pharmacy":    (colors.HexColor("#f3e8ff"), colors.HexColor("#7c3aed")),
+            "Coupon/Accumulator":      (colors.HexColor("#ffedd5"), colors.HexColor("#ea580c")),
+            "Formulary Optimization":  (colors.HexColor("#ccfbf1"), colors.HexColor("#0d9488")),
+        }
+        IMPACT_COLORS = {
+            "High":   colors.HexColor("#dc2626"),
+            "Medium": colors.HexColor("#d97706"),
+            "Low":    colors.HexColor("#1d4ed8"),
+        }
+
+        for item in analysis.savings_opportunities:
+            cat_bg, cat_fg = SAVINGS_COLORS.get(item.category, (LIGHT_BG, PRIMARY))
+            impact_color = IMPACT_COLORS.get(item.estimated_impact, MUTED)
+
+            savings_block = Table(
+                [
+                    [
+                        Paragraph(item.category, ParagraphStyle(
+                            f"sc{item.category[:4]}", parent=styles["body_left"],
+                            textColor=cat_fg, fontName="Helvetica-Bold",
+                            fontSize=8.5, spaceAfter=0,
+                        )),
+                        Paragraph(item.drug_or_area, ParagraphStyle(
+                            f"sn{item.drug_or_area[:4]}", parent=styles["subsection_heading"],
+                            spaceBefore=0, spaceAfter=0, textColor=DARK_TEXT, fontSize=10.5,
+                        )),
+                        Paragraph(item.estimated_impact, ParagraphStyle(
+                            f"si{item.estimated_impact}", parent=styles["body_left"],
+                            textColor=WHITE, fontName="Helvetica-Bold",
+                            fontSize=8.5, spaceAfter=0, alignment=TA_CENTER,
+                        )),
+                    ],
+                    [
+                        Paragraph(item.opportunity, styles["table_cell"]),
+                        "",
+                        "",
+                    ],
+                    [
+                        Paragraph(
+                            f"<b>Action Required:</b> {item.action_required}",
+                            ParagraphStyle(
+                                f"sa{item.category[:4]}", parent=styles["table_cell"],
+                                textColor=cat_fg,
+                            ),
+                        ),
+                        "",
+                        "",
+                    ],
+                ],
+                colWidths=[1.8 * inch, CONTENT_W - 2.7 * inch, 0.9 * inch],
+            )
+            savings_block.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (0, 0), cat_bg),
+                ("BACKGROUND", (1, 0), (1, 0), LIGHT_BG),
+                ("BACKGROUND", (2, 0), (2, 0), impact_color),
+                ("SPAN",       (0, 1), (2, 1)),
+                ("SPAN",       (0, 2), (2, 2)),
+                ("BACKGROUND", (0, 1), (-1, 1), WHITE),
+                ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#f8fafc")),
+                ("LINEBEFORE", (0, 0), (0, -1), 5, cat_fg),
+                ("BOX",        (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d9e0")),
+                ("LINEBELOW",  (0, 0), (-1, 0),  0.5, colors.HexColor("#d1d9e0")),
+                ("LINEBELOW",  (0, 1), (-1, 1),  0.5, colors.HexColor("#edf2f7")),
+                ("TOPPADDING",    (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("LEFTPADDING",   (0, 0), (0, 0),  12),
+                ("RIGHTPADDING",  (0, 0), (0, 0),   8),
+                ("LEFTPADDING",   (1, 0), (1, 0),  12),
+                ("RIGHTPADDING",  (1, 0), (1, 0),   8),
+                ("LEFTPADDING",   (2, 0), (2, 0),   4),
+                ("RIGHTPADDING",  (2, 0), (2, 0),   4),
+                ("LEFTPADDING",   (0, 1), (0, 2),  14),
+                ("RIGHTPADDING",  (0, 1), (0, 2),  14),
+                ("VALIGN",  (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN",   (2, 0), (2, 0),   "CENTER"),
+                ("VALIGN",  (0, 1), (-1, -1), "TOP"),
+            ]))
+            story.append(KeepTogether([savings_block, Spacer(1, 9)]))
+
+    # ── 09 DATA SOURCES & METHODOLOGY ────────────────────────────────────────────
+    story.append(Spacer(1, 0.3 * inch))
+    story += section_header(snl(8), "Data Sources & Methodology", styles)
+    story.append(Paragraph(
+        "Market benchmarks in this report are derived from five primary industry sources: "
+        "<b>Pharmaceutical Strategies Group (PSG) Rx Drug Benefit Practices and Benchmarks "
+        "Survey (2023–2024)</b>, "
+        "<b>Segal Consulting Prescription Drug Benefit Cost and Plan Design Survey (2024)</b>, "
+        "<b>Milliman Employer Drug Benefit Report (2024)</b>, "
+        "<b>Willis Towers Watson Best Practices in Health Care Employer Survey (2024)</b>, and "
+        "<b>FTC Report on Prescription Drug Middlemen (July 2024)</b>. "
+        "These represent the most comprehensive publicly available PBM benchmarking data. "
+        "PBM contract terms vary significantly by group size, formulary design, pricing model "
+        "(pass-through vs. spread), and negotiating leverage — benchmarks reflect market medians "
+        "and should be evaluated in the context of the specific employer's profile. "
+        "This analysis does not constitute legal or actuarial advice.",
+        styles["body"],
+    ))
+
+    # ── 10 GLOSSARY ───────────────────────────────────────────────────────────────
+    story.append(PageBreak())
+    story += section_header(snl(9), "Glossary of PBM Terms", styles)
+    story.append(Paragraph(
+        "The following definitions are provided to help benefits professionals and employers "
+        "understand key PBM terminology referenced in this report.",
+        styles["body"],
+    ))
+    story.append(Spacer(1, 0.1 * inch))
+
+    try:
+        from .knowledge import PBM_GLOSSARY
+        glossary = PBM_GLOSSARY
+    except ImportError:
+        glossary = []
+
+    glossary_style = ParagraphStyle(
+        "pbm_glossary_term", parent=styles["subsection_heading"],
+        fontSize=10.5, spaceBefore=10, spaceAfter=2, textColor=PRIMARY,
+    )
+    glossary_def_style = ParagraphStyle(
+        "pbm_glossary_def", parent=styles["body"],
+        fontSize=9.5, leading=14, spaceAfter=2,
+    )
+    glossary_example_style = ParagraphStyle(
+        "pbm_glossary_example", parent=styles["body"],
+        fontSize=9, fontName="Helvetica-Oblique", textColor=MUTED,
+        leading=13, spaceAfter=0,
+    )
+
+    for entry in glossary:
+        term_para = Paragraph(entry["term"], glossary_style)
+        def_para = Paragraph(entry["definition"], glossary_def_style)
+        example_para = Paragraph(
+            f"<i>Example: {entry['example']}</i>",
+            glossary_example_style,
+        )
+        story.append(KeepTogether([
+            term_para,
+            def_para,
+            example_para,
+            HRFlowable(width="100%", thickness=0.3, color=colors.HexColor("#e2e8f0"),
+                       spaceAfter=0, spaceBefore=6),
+        ]))
 
     # ── Final disclaimer ─────────────────────────────────────────────────────
     story.append(Spacer(1, 0.4 * inch))
