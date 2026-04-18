@@ -1,7 +1,6 @@
 """
 Claude API integration for PBM contract analysis.
-Uses the Files API for efficient document handling and extended thinking
-for deep domain-specific contract analysis.
+Uses Sonnet for fast structured extraction via tool_use.
 """
 
 import os
@@ -209,8 +208,35 @@ When generating savings_opportunities, consult the biosimilar_opportunities, pat
 - savings_opportunities are independent employer/broker actions; negotiation_guidance requires PBM cooperation. Keep them distinct."""
 
 
+def _user_friendly_error(e: Exception) -> str:
+    """Convert API/SDK exceptions into messages suitable for end users."""
+    msg = str(e).lower()
+    if "authentication" in msg or "api_key" in msg or "auth_token" in msg:
+        return "Analysis service authentication failed. Please contact support."
+    if "rate_limit" in msg or "rate limit" in msg or "429" in msg:
+        return "The analysis service is temporarily busy. Please try again in a minute."
+    if "overloaded" in msg or "529" in msg or "503" in msg:
+        return "The analysis service is experiencing high demand. Please try again shortly."
+    if "timeout" in msg or "timed out" in msg:
+        return "The analysis took too long. Please try again — shorter contracts process faster."
+    if "connection" in msg:
+        return "Could not connect to the analysis service. Please try again."
+    if "did not return structured" in msg:
+        return str(e)
+    return "Analysis failed due to an unexpected error. Please try again."
+
+
 def analyze_contract_background(sessions: dict, session_id: str, text: str) -> None:
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        sessions[session_id].status = SessionStatus.ERROR
+        sessions[session_id].status_message = "Analysis failed"
+        sessions[session_id].error_message = (
+            "Analysis service is not configured. Please set the ANTHROPIC_API_KEY environment variable."
+        )
+        return
+
+    client = anthropic.Anthropic(api_key=api_key, timeout=120.0)
 
     try:
         sessions[session_id].status = SessionStatus.PROCESSING
@@ -218,7 +244,6 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
 
         system_prompt = build_system_prompt()
 
-        # Pass contract text directly — keeps compatibility with streaming + adaptive thinking
         text_truncated = text[:120000]
         messages = [
             {
@@ -235,10 +260,13 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
 
         sessions[session_id].status_message = "Analyzing pricing terms and contract structure..."
 
-        response = _call_claude_with_fallbacks(
-            client=client,
-            system_prompt=system_prompt,
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=8000,
+            system=system_prompt,
             messages=messages,
+            tools=[ANALYSIS_TOOL],
+            tool_choice={"type": "tool", "name": "analyze_pbm_contract"},
         )
 
         sessions[session_id].status_message = "Comparing to market benchmarks..."
@@ -281,13 +309,11 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
         sessions[session_id].status = SessionStatus.COMPLETE
         sessions[session_id].status_message = "Analysis complete"
 
-        # Learn from this analysis
         try:
             record_analysis_insights(analysis)
         except Exception as e:
             print(f"[Analyzer] Failed to record insights: {e}")
 
-        # Save to contract library and build comparison
         try:
             save_contract(session_id, analysis, text)
             benchmarks = get_library_benchmarks()
@@ -299,21 +325,5 @@ def analyze_contract_background(sessions: dict, session_id: str, text: str) -> N
     except Exception as e:
         sessions[session_id].status = SessionStatus.ERROR
         sessions[session_id].status_message = "Analysis failed"
-        sessions[session_id].error_message = str(e)
+        sessions[session_id].error_message = _user_friendly_error(e)
         print(f"[Analyzer] Error for session {session_id}: {e}")
-
-
-def _call_claude_with_fallbacks(client, system_prompt, messages):
-    """
-    Call Claude for contract analysis.
-    Adaptive thinking is incompatible with forced tool_choice, so we use a
-    high max_tokens budget and rely on Opus 4.6's native reasoning ability.
-    """
-    return client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=8000,
-        system=system_prompt,
-        messages=messages,
-        tools=[ANALYSIS_TOOL],
-        tool_choice={"type": "tool", "name": "analyze_pbm_contract"},
-    )

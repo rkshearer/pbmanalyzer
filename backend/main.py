@@ -176,6 +176,12 @@ async def _run_analysis(session_id: str, text: str):
 
 @app.post("/api/analyze")
 async def analyze_contract(file: UploadFile = File(...), _user: UserOut = Depends(get_current_user)):
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        raise HTTPException(
+            status_code=503,
+            detail="Analysis service is not configured. The ANTHROPIC_API_KEY environment variable is missing.",
+        )
+
     filename = file.filename or ""
     if not filename.lower().endswith((".pdf", ".docx", ".doc")):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported.")
@@ -184,13 +190,19 @@ async def analyze_contract(file: UploadFile = File(...), _user: UserOut = Depend
     if len(file_bytes) > 50 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size must not exceed 50MB.")
 
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
     try:
         text = extract_text(file_bytes, filename)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
 
     if not text.strip():
-        raise HTTPException(status_code=400, detail="No readable text found in the file.")
+        raise HTTPException(
+            status_code=400,
+            detail="No readable text found in the file. The PDF may be image-based — try a text-based document.",
+        )
 
     session_id = str(uuid.uuid4())
     sessions[session_id] = SessionData()
